@@ -131,7 +131,7 @@ npm run check
 npm test
 ```
 
-The complete suite contains **59 checks**. It covers persistent preferences, room permissions and limits, reconnect/host transfer, isolated simultaneous rooms, identical authoritative snapshots, full races on all maps, race scoring, real overtaking, labels, HUD behavior and the splash/menu/customization/room flow. Deployment checks also cover frontend packaging and cross-origin room connections. Use `npm run test:deployment` for hosting integration checks, or `npm run test:v15` or `npm run test:app-flow` for the new feature suites alone.
+The complete suite contains **61 checks**. It covers persistent preferences, room permissions and limits, reconnect/host transfer, isolated simultaneous rooms, identical authoritative snapshots, full races on all maps, race scoring, real overtaking, labels, HUD behavior and the splash/menu/customization/room flow. Deployment checks also cover frontend packaging and cross-origin room connections. Use `npm run test:deployment` for hosting integration checks, or `npm run test:v15` or `npm run test:app-flow` for the new feature suites alone.
 
 Tests require installed Node dependencies and internet access for pinned browser-engine and LinkeDOM helpers. The tests use real Three.js/cannon-es and real Socket.IO clients. DOM fixtures do not simulate native CSS layout, focus management or WebGL rendering. Native browser visuals still require browser review.
 

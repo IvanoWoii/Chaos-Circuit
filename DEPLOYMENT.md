@@ -1,136 +1,363 @@
-# Public multiplayer: Vercel + a Node backend
+# Complete setup: Vercel frontend with a local multiplayer backend
 
-Players open one public Vercel URL. Their browsers connect over HTTPS/WebSocket to a shared multiplayer backend. They can be on different networks. The backend can run on a cloud service, or on your own computer through a secure public tunnel.
+This guide uses the simplest arrangement for this project:
 
-The repository is prepared for this deployment, but no hosting service has been created or published from this workspace.
+```text
+Friends' browsers
+        |
+        v
+Vercel frontend (public website)
+        |
+        v
+ngrok HTTPS/WebSocket tunnel
+        |
+        v
+Node.js multiplayer server on your computer
+```
 
-## Simpler option: keep the backend on your computer
+Your friends visit only the Vercel website. They do not need your IP address, do not need to share your network, and do not install anything. Your computer runs the authoritative race simulation, so it must remain powered on and connected while multiplayer is available.
 
-This is a good fit for private play sessions. Use a tunnel with a stable HTTPS address so Vercel always knows where to reach the server. An ngrok account includes an assigned development domain; copy the exact domain shown in the ngrok dashboard.
+## What the earlier Vercel error meant
 
-Install ngrok and add the account token once, following the [ngrok setup guide](https://ngrok.com/use-cases/share-localhost). Then use two PowerShell windows.
+The previous build required `MULTIPLAYER_URL` before Vercel could deploy:
 
-In the first window, start the game server and allow your exact Vercel production origin:
+```text
+Error: Set MULTIPLAYER_URL to the public HTTPS multiplayer backend URL before deploying to Vercel.
+```
+
+That created an awkward circle: you often want the Vercel address first so the backend can allow it. The build has now been changed so the first deployment succeeds without `MULTIPLAYER_URL`. Solo racing works immediately. **Race with Friend** displays a clear configuration message until you add the tunnel URL and redeploy.
+
+## Requirements
+
+Install or create these before starting:
+
+- Node.js 20 or newer on the computer that will host races.
+- A GitHub, GitLab, or Bitbucket repository containing this project.
+- A Vercel account connected to that repository.
+- A free ngrok account.
+- The ngrok Windows application.
+
+Never commit an ngrok authtoken, Vercel token, `.env` file, or other credential. The repository already ignores `.env`, `.env.*`, `.vercel/`, `node_modules/`, and the generated `dist/` directory.
+
+## Part 1 — Check the project locally
+
+Open PowerShell in the project folder:
 
 ```powershell
-$env:ALLOWED_ORIGINS = 'https://your-game.vercel.app'
+cd 'E:\game\me\balap chaos'
+npm.cmd ci
+npm.cmd run check
+npm.cmd run test:deployment
+```
+
+Start the complete local game:
+
+```powershell
 npm.cmd start
 ```
 
-In the second window, forward the server through your assigned ngrok domain:
+Open `http://localhost:3000`. Confirm that solo racing works. You can also open two browser windows and test a local friend room. Stop the server with `Ctrl+C` after this check.
+
+## Part 2 — Push the current project to your Git repository
+
+Commit and push the current files, including these deployment files:
+
+```text
+vercel.json
+package.json
+package-lock.json
+scripts/build.mjs
+js/network/config.js
+js/network/client.js
+server/
+```
+
+Do not upload `node_modules/` or `dist/`. Vercel installs dependencies and generates `dist/` during its build.
+
+If Vercel is already connected to this repository, push the latest changes and continue to Part 3.
+
+## Part 3 — Make the first Vercel deployment
+
+1. Open the [Vercel dashboard](https://vercel.com/dashboard).
+2. Select **Add New → Project**.
+3. Import the repository containing this game.
+4. Set **Framework Preset** to **Other** if Vercel does not select it automatically.
+5. Leave **Root Directory** at the repository root.
+6. The repository's `vercel.json` supplies these settings:
+
+   ```text
+   Build Command: npm run build
+   Output Directory: dist
+   ```
+
+7. Do not add `MULTIPLAYER_URL` yet.
+8. Select **Deploy**.
+
+The build should succeed and print:
+
+```text
+MULTIPLAYER_URL is not set. Deploying with Race with Friend disabled.
+Static game built in dist/. Multiplayer: not configured
+```
+
+This is a warning, not an error. Open the deployment and verify solo play. Copy the stable production origin from the address bar, for example:
+
+```text
+https://chaos-circuit.vercel.app
+```
+
+Use only the origin: include `https://`, and omit a trailing slash, path, query string, or fragment.
+
+## Part 4 — Install and connect ngrok on Windows
+
+Install ngrok from the Microsoft Store, or use the official WinGet command:
 
 ```powershell
-ngrok http 3000 --url https://your-assigned-domain.ngrok.app
+winget install ngrok -s msstore
 ```
 
-Use the actual assigned hostname from your ngrok account; its suffix may differ from the example. Test `https://your-assigned-domain.ngrok.app/health` and confirm it returns `{"ok":true,"version":"1.5.0"}`.
+Close and reopen PowerShell if the `ngrok` command is not found.
 
-In Vercel, set the Production environment variable to that same origin and redeploy:
-
-```text
-MULTIPLAYER_URL=https://your-assigned-domain.ngrok.app
-```
-
-Environment-variable changes affect only new Vercel deployments, so the redeploy is required. A stable tunnel hostname means this is a one-time Vercel setting.
-
-During every multiplayer session, your computer must stay awake and connected, and both `npm start` and ngrok must remain running. If either process stops, connected players lose the room; automatic Socket.IO reconnection resumes only if the same server process and tunnel return before the reserved seat expires. The backend remains authoritative, so its upload speed and distance from players affect latency. Rooms also disappear if the Node process restarts.
-
-Do not forward port 3000 directly through the router. The tunnel supplies HTTPS and WebSocket forwarding without exposing your home IP or opening an inbound firewall port. The server accepts browser connections only from the exact origins in `ALLOWED_ORIGINS`, although that origin check is not an account or login system.
-
-For a quick test without an account, Cloudflare offers [temporary Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/):
+Sign in to the [ngrok dashboard](https://dashboard.ngrok.com/), open the setup page, and copy your personal authtoken command. Run it once:
 
 ```powershell
-cloudflared tunnel --url http://localhost:3000
+ngrok config add-authtoken 'PASTE_YOUR_PRIVATE_AUTHTOKEN_HERE'
 ```
 
-Quick Tunnel hostnames change whenever the tunnel restarts and have no uptime guarantee. Each new hostname must be copied into Vercel's `MULTIPLAYER_URL` followed by a redeploy, so use this only for testing. A named Cloudflare Tunnel gives a stable hostname but requires a domain configured on Cloudflare.
+Do not paste the token into source files or send it to other people.
 
-If you want the game available while your PC is off, continue with the hosted backend instructions below.
-
-## 1. Put the project in a Git repository
-
-Push the project to a repository you can import into both hosting providers. Include `package-lock.json`, `vercel.json`, `server/`, `scripts/` and `js/`. The `.gitignore` excludes generated `dist/`, dependencies and local environment files. Both services use this same repository.
-
-## 2. Create the multiplayer backend
-
-For example, create a **Node Web Service** on [Render](https://render.com/docs/deploy-node-express-app) and connect the repository. Render supports [WebSocket connections](https://render.com/docs/websocket). Another host with a persistent Node process and WebSocket forwarding also works.
-
-| Setting | Value |
-| --- | --- |
-| Root directory | Repository root |
-| Build command | `npm ci` |
-| Start command | `npm start` |
-| Health check path | `/health` |
-| Instances | **1** |
-| `NODE_VERSION` | `22` |
-| `ALLOWED_ORIGINS` | Your exact frontend origin, e.g. `https://your-game.vercel.app` |
-
-The server already binds to `0.0.0.0` and the provider's `PORT`. The provider must forward both HTTP requests and WebSocket upgrades on the same public HTTPS domain. No custom Socket.IO path is needed.
-
-If the frontend domain is not known yet, deploy the backend first, then set `ALLOWED_ORIGINS` after creating the Vercel project. Until configured, it accepts only same-origin browser connections. Copy the backend's public URL, for example `https://your-multiplayer-service.onrender.com`. Visiting its `/health` should return `{"ok":true,"version":"1.5.0"}`.
-
-Use a service that remains running during play. [Render's free service limits](https://render.com/docs/free) include idle spin-down and startup delays. Rooms and running races are in memory: backend restarts, deployments and shutdowns clear them. Keep one instance; adding replicas requires shared room coordination and simulation ownership first.
-
-## 3. Deploy the frontend on Vercel
-
-Import the same repository as a Vercel project. Use the **Other** framework preset and the repository root. The checked-in `vercel.json` defines:
-
-| Setting | Value |
-| --- | --- |
-| Build command | `npm run build` |
-| Output directory | `dist` |
-| Environment variable | `MULTIPLAYER_URL=https://your-multiplayer-service.onrender.com` |
-
-Set `MULTIPLAYER_URL` for **Production** before deploying. Set it for Preview too if you want multiplayer on preview deployments. This is a public URL, not a secret. Use the backend origin only: HTTPS, no `/socket.io`, credentials, query parameters or trailing path.
-
-The build copies only the game assets into `dist/` and embeds this URL in `js/network/config.js`. It fails on Vercel if the URL is missing or invalid. A change to this environment variable requires a new Vercel deployment. Server source, scripts and environment files are not included in the static site.
-
-## 4. Allow the final Vercel domain on the backend
-
-Set the backend service's environment variable and restart/redeploy that service:
+In the ngrok dashboard, find your assigned static development domain under **Domains**. Copy the exact HTTPS address. It may resemble one of these:
 
 ```text
-ALLOWED_ORIGINS=https://your-game.vercel.app
+https://example-name.ngrok-free.app
+https://example-name.ngrok.app
 ```
 
-For a custom domain or selected preview domains, use a comma-separated list:
+Use the hostname assigned to your own account; do not copy either example literally.
+
+## Part 5 — Start the local multiplayer backend
+
+Open a new PowerShell window in the project folder. Replace the example with the exact Vercel production origin copied in Part 3:
+
+```powershell
+cd 'E:\game\me\balap chaos'
+$env:ALLOWED_ORIGINS = 'https://chaos-circuit.vercel.app'
+npm.cmd start
+```
+
+Keep this window open. A successful start prints that the server is listening on port 3000.
+
+`ALLOWED_ORIGINS` is an exact, comma-separated allowlist. If you later use a custom domain, allow both exact origins:
+
+```powershell
+$env:ALLOWED_ORIGINS = 'https://chaos-circuit.vercel.app,https://race.example.com'
+npm.cmd start
+```
+
+Do not use `*`, paths, or trailing slashes. Preview deployments have changing hostnames, so this tutorial uses the stable production deployment.
+
+## Part 6 — Start the public tunnel
+
+Open a second PowerShell window. Replace the URL with your assigned ngrok domain:
+
+```powershell
+ngrok http 3000 --url 'https://example-name.ngrok-free.app'
+```
+
+Keep this window open too. ngrok should show a forwarding address that points to `http://localhost:3000`.
+
+Test the public backend in a browser by appending `/health`:
 
 ```text
-ALLOWED_ORIGINS=https://your-game.vercel.app,https://race.example.com,https://your-exact-preview.vercel.app
+https://example-name.ngrok-free.app/health
 ```
 
-Origins are exact matches, including protocol and port. There is no blanket `*.vercel.app` allowance. Both polling and WebSocket handshakes check the origin. This setting is an origin restriction, not player authentication: rooms remain public to users of your game.
+The expected response is:
 
-## 5. Check and share
+```json
+{"ok":true,"version":"1.5.0"}
+```
 
-1. Open the **Vercel URL** in two browsers, ideally on different networks (for example Wi-Fi and mobile data).
-2. Choose **Race with Friend** and wait for **Connected** in both.
-3. Create a room in the first browser and join its code from the second.
-4. Start a race and confirm both see the same cars, obstacles and results.
-5. Share the Vercel URL and room code with friends. Nobody needs a LAN address or port forwarding.
+On a free ngrok account, the first browser visit may show ngrok's safety page. Select its visit/continue button once, then confirm the JSON response. The game client connects directly with WebSocket and does not use that HTML page.
 
-If friends encounter Vercel's deployment access screen, check the project's Deployment Protection settings and share the intended publicly accessible production deployment.
+If `/health` does not load, do not continue yet. Check that `npm.cmd start` is still running, ngrok forwards to port 3000, and the tunnel uses the assigned domain.
+
+## Part 7 — Connect Vercel to the tunnel
+
+1. Open the Vercel project.
+2. Go to **Settings → Environment Variables**.
+3. Create this variable:
+
+   ```text
+   Name: MULTIPLAYER_URL
+   Value: https://example-name.ngrok-free.app
+   Environment: Production
+   ```
+
+4. Use your real ngrok origin. Do not add `/health`, `/socket.io`, a trailing slash, quotation marks, or spaces.
+5. Save the variable.
+6. Open **Deployments**.
+7. Find the latest production deployment, open its menu, and select **Redeploy**.
+8. Do not reuse the old build cache if Vercel offers that choice and the generated configuration appears stale.
+
+Environment-variable changes apply only to new deployments. A successful build now prints the configured ngrok origin:
+
+```text
+Static game built in dist/. Multiplayer: https://example-name.ngrok-free.app
+```
+
+You can verify the embedded value after deployment by opening:
+
+```text
+https://chaos-circuit.vercel.app/js/network/config.js
+```
+
+It should contain:
+
+```js
+export const multiplayerUrl = "https://example-name.ngrok-free.app";
+export const multiplayerConfigured = true;
+```
+
+This file contains only a public address. It must not contain the ngrok authtoken.
+
+## Part 8 — Test multiplayer from two networks
+
+Keep both local PowerShell windows running:
+
+1. `npm.cmd start`
+2. `ngrok http 3000 --url ...`
+
+Then:
+
+1. Open the Vercel production URL on your computer.
+2. Open the same Vercel URL on a phone using mobile data, or ask a friend on another network.
+3. On both devices, choose **Race with Friend**.
+4. Wait until both show **Connected**.
+5. Create a room on one device.
+6. Enter its six-character room code on the other device.
+7. Start the race and confirm both devices show the same cars, obstacles, timing, and results.
+
+Only share the Vercel URL and room code. Friends should not open localhost, port 3000, or the ngrok dashboard.
+
+## Starting a multiplayer session later
+
+The Vercel frontend and stable ngrok domain remain configured. For each future play session, open two PowerShell windows and run:
+
+Window 1:
+
+```powershell
+cd 'E:\game\me\balap chaos'
+$env:ALLOWED_ORIGINS = 'https://chaos-circuit.vercel.app'
+npm.cmd start
+```
+
+Window 2:
+
+```powershell
+ngrok http 3000 --url 'https://example-name.ngrok-free.app'
+```
+
+You do not need to redeploy Vercel when the assigned ngrok hostname stays the same.
+
+## Important limitations
+
+- Your computer must remain awake, online, and connected during the whole race.
+- Closing either PowerShell window takes multiplayer offline.
+- Restarting the Node server deletes current rooms and races because V1.5 stores them in memory.
+- Your upload bandwidth, Wi-Fi quality, and distance from players affect latency.
+- Free tunnel plans have traffic and connection limits that can change over time.
+- The origin allowlist reduces accidental browser access but is not user authentication. Anyone using the public game can create or join rooms if they know a room code.
+- LocalStorage profiles belong to each website origin. Profiles created on localhost do not automatically appear on the Vercel domain.
 
 ## Troubleshooting
 
-- **Build fails asking for `MULTIPLAYER_URL`:** add it to the correct Vercel environment and redeploy.
-- **Solo works but rooms do not connect:** check backend `/health`, backend logs and the exact `ALLOWED_ORIGINS` value. Check the deployed `js/network/config.js` contains the backend HTTPS URL, not localhost.
-- **403 on `/socket.io/`:** the page's origin is missing from `ALLOWED_ORIGINS`. Check the browser address bar for a preview or custom domain.
-- **Long first connection:** the backend may be waking after sleeping. Keep it running for uninterrupted sessions.
-- **Rooms disappear after deployment:** current rooms live only in the backend process. Deploy between races.
-- **Old profile is missing:** LocalStorage is separate for localhost, Vercel previews and the production domain. Pick one stable production URL for saved preferences and scores.
+### Vercel still shows the old missing-variable build error
 
-## Local development and verification
+The deployment is building an older commit. Confirm the latest `scripts/build.mjs` is pushed to the repository. The new version contains this message:
 
-`npm start` still serves the complete game at `http://localhost:3000` with same-origin multiplayer. Environment variables in `.env.example` are examples; the scripts read the process environment and do not automatically load `.env` files.
-
-```sh
-npm run check
-npm run test:deployment
+```text
+Deploying with Race with Friend disabled
 ```
 
-Deployment checks build the public frontend, validate configuration, exercise allowed/denied polling and WebSocket handshakes, and run two clients through a shared race. They do not verify an actual Vercel/Render deployment or native browser rendering.
+Trigger a new deployment from the latest commit.
 
-## Why the physics backend is separate
+### Vercel builds, but Race with Friend says it is not configured
 
-[Vercel now supports WebSockets in public beta](https://vercel.com/kb/guide/do-vercel-serverless-functions-support-websocket-connections). Connections can reach different function instances and close at the function's maximum duration. Vercel recommends external shared state for rooms across those instances. This game currently keeps each room, cannon-es world and 60 Hz simulation clock together in one Node process. A persistent backend preserves that implementation. Hosting everything on Vercel would require distributed room ownership, simulation checkpoint/resume and cross-instance message coordination; adding a WebSocket function alone would not provide those guarantees.
+Check all four items:
+
+1. `MULTIPLAYER_URL` exists in **Project Settings → Environment Variables**.
+2. It is enabled for **Production**.
+3. Its value is the HTTPS ngrok origin only.
+4. You redeployed after saving it.
+
+Open `/js/network/config.js` on the deployed Vercel site to see what that deployment actually embedded.
+
+### The Vercel build rejects MULTIPLAYER_URL
+
+Valid:
+
+```text
+https://example-name.ngrok-free.app
+```
+
+Invalid examples:
+
+```text
+http://example-name.ngrok-free.app
+https://example-name.ngrok-free.app/
+https://example-name.ngrok-free.app/health
+localhost:3000
+```
+
+The production value must be a public HTTPS origin without a trailing slash or path.
+
+### `/health` gives an ngrok or connection error
+
+- Confirm the Node server says it is listening on port 3000.
+- Confirm ngrok forwards to `http://localhost:3000`.
+- Try `http://localhost:3000/health` locally first.
+- Restart ngrok with the exact assigned domain.
+- Check whether antivirus, VPN, or corporate firewall software blocks ngrok.
+
+### Vercel opens, but the room screen stays disconnected
+
+- Confirm the public ngrok `/health` endpoint works.
+- Confirm Vercel's `/js/network/config.js` contains the same ngrok origin.
+- Restart Node with `ALLOWED_ORIGINS` exactly matching the Vercel address shown in the browser.
+- Do not include a trailing slash in `ALLOWED_ORIGINS`.
+- If using a Vercel preview URL, add that exact preview origin to `ALLOWED_ORIGINS`, or test from production instead.
+- Inspect the Node and ngrok windows for rejected requests or disconnects.
+
+### The room worked and then disappeared
+
+The Node process restarted, the PC slept, or the tunnel disconnected. Current rooms are not stored in a database. Start both processes again and create a new room.
+
+### Friends see a Vercel login or protection page
+
+Open the Vercel project's deployment protection settings and ensure the intended production deployment is publicly accessible. Do not disable protections on unrelated projects.
+
+### Port 3000 is already in use
+
+Stop the older game server with `Ctrl+C`. To identify the process in PowerShell:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -State Listen
+```
+
+Use one backend process so every player reaches the same in-memory room service.
+
+## Security notes
+
+- Do not configure router port forwarding; ngrok creates the outbound tunnel.
+- Do not expose or commit the ngrok authtoken.
+- Do not put secrets in `MULTIPLAYER_URL`; it is embedded in public JavaScript.
+- Keep Node.js, npm dependencies, ngrok, and the operating system updated.
+- Stop ngrok and the Node server when the multiplayer service is not in use.
+
+## Useful official documentation
+
+- [Vercel environment variables](https://vercel.com/docs/environment-variables)
+- [Vercel build troubleshooting](https://vercel.com/docs/deployments/troubleshoot-a-build)
+- [ngrok Windows installation](https://ngrok.com/download/windows)
+- [ngrok localhost sharing](https://ngrok.com/use-cases/share-localhost)

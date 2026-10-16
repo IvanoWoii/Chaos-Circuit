@@ -5,21 +5,29 @@ import { io } from 'socket.io-client';
 import { build, backendOrigin } from './build.mjs';
 import { createGameServer } from '../server/index.js';
 
-assert.throws(() => backendOrigin('', true), /MULTIPLAYER_URL/);
+assert.equal(backendOrigin('', true), '');
 for (const value of ['http://example.com', 'https://user:secret@example.com', 'https://example.com/socket.io', 'https://example.com/?token=secret', 'https://localhost']) {
   assert.throws(() => backendOrigin(value, true));
 }
 assert.equal(backendOrigin('https://race.example.com/', true), 'https://race.example.com');
-console.log('PASS deployment rejects missing or invalid public backend configuration');
+console.log('PASS deployment accepts an empty first deploy and rejects invalid public backend URLs');
 
 await build({ url: 'https://race.example.com', vercel: true });
 assert.match(await readFile('dist/js/network/config.js', 'utf8'), /https:\/\/race\.example\.com/);
+assert.match(await readFile('dist/js/network/config.js', 'utf8'), /multiplayerConfigured = true/);
 assert.match(await readFile('js/network/config.js', 'utf8'), /multiplayerUrl = ''/);
 const output = await readdir('dist');
 assert.deepEqual(output.sort(), ['.chaos-build', 'favicon.svg', 'hud.css', 'index.html', 'js', 'menus.css', 'styles.css']);
 const config = JSON.parse(await readFile('vercel.json', 'utf8'));
 assert.equal(config.outputDirectory, 'dist');
 console.log('PASS Vercel build includes only public assets and injects the backend URL without editing local config');
+
+await build({ url: '', vercel: true });
+assert.match(await readFile('dist/js/network/config.js', 'utf8'), /multiplayerConfigured = false/);
+console.log('PASS initial Vercel build succeeds with online rooms explicitly disabled');
+const unconfiguredClient = await import(`../dist/js/network/client.js?deployment-test=${Date.now()}`);
+await assert.rejects(unconfiguredClient.createRoomClient({}), /Online rooms are not configured yet/);
+console.log('PASS unconfigured deployment reports the missing Vercel setting before connecting');
 
 const frontend = 'https://chaos-example.vercel.app';
 const app = createGameServer({ manual: true, allowedOrigins: frontend });
@@ -78,4 +86,5 @@ try {
 
 // Leave the generated local artifact usable without a fictional backend URL.
 await build({ url: '', vercel: false });
-console.log('5 deployment checks passed.');
+assert.match(await readFile('dist/js/network/config.js', 'utf8'), /multiplayerConfigured = true/);
+console.log('7 deployment checks passed.');

@@ -1,10 +1,18 @@
-import { multiplayerUrl } from './config.js';
+import { multiplayerConfigured, multiplayerUrl } from './config.js';
 
 /** Socket.IO is loaded only when the player opens online rooms. Solo play stays independent. */
-export async function createRoomClient(handlers, { url = multiplayerUrl || undefined } = {}) {
+export async function createRoomClient(handlers, options = {}) {
+  const explicitUrl = options.url;
+  if (!multiplayerConfigured && !explicitUrl) {
+    throw Error('Online rooms are not configured yet. Add MULTIPLAYER_URL in Vercel and redeploy.');
+  }
+  const url = explicitUrl || multiplayerUrl || undefined;
   const {io}=await import('socket.io-client');
   let token=null;try{token=sessionStorage.getItem('chaos-circuit.session');}catch{}
-  const socket=io(url,{autoConnect:false,auth:{token},timeout:6000,reconnection:true,reconnectionDelay:700,reconnectionDelayMax:3000});
+  const socket=io(url,{autoConnect:false,auth:{token},timeout:6000,reconnection:true,reconnectionDelay:700,reconnectionDelayMax:3000,
+    // A public tunnel is a WebSocket endpoint. Starting with WebSocket avoids
+    // free-tunnel browser interstitials on Socket.IO's HTTP polling request.
+    ...(url ? {transports:['websocket']} : {})});
   let id=null;
   socket.on('session',session=>{id=session.id;socket.auth.token=session.token;try{sessionStorage.setItem('chaos-circuit.session',session.token);}catch{}handlers.session?.(session);});
   socket.on('connect',()=>handlers.connection?.(true,'Connected'));

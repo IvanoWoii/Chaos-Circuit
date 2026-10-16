@@ -153,7 +153,7 @@ export function bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview,
     const profile = saveIdentity(); onlineProfileId = profile.id; onlineWanted = true;
     $('#room-driver-name').value = profile.name; controls.setWorld('track'); show('friends');
     try { await ensureClient(); }
-    catch { message('#connection-status', 'The room service could not load. Check your connection and try Refresh.'); }
+    catch (error) { message('#connection-status', error.message || 'The room service could not load. Check your connection and try Refresh.'); }
   }), options);
   document.querySelectorAll('[data-back-menu]').forEach(button => button.addEventListener('click', () => leaveToMenu(), options));
   $('#menu-return').addEventListener('click', () => leaveToMenu(), options);

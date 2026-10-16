@@ -8,10 +8,9 @@ const marker = resolve(output, '.chaos-build');
 
 export function backendOrigin(value, required = false) {
   const input = (value || '').trim();
-  if (!input) {
-    if (required) throw Error('Set MULTIPLAYER_URL to the public HTTPS multiplayer backend URL before deploying to Vercel.');
-    return '';
-  }
+  // The first Vercel deploy is allowed without a backend. It gives the owner
+  // the final frontend origin needed by ALLOWED_ORIGINS on the local server.
+  if (!input) return '';
   let url;
   try { url = new URL(input); } catch { throw Error('MULTIPLAYER_URL must be an absolute HTTP(S) origin.'); }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
@@ -26,6 +25,7 @@ export function backendOrigin(value, required = false) {
 
 export async function build({ url = process.env.MULTIPLAYER_URL, vercel = process.env.VERCEL === '1' } = {}) {
   const origin = backendOrigin(url, vercel);
+  const multiplayerConfigured = Boolean(origin) || !vercel;
   // Only replace our own generated directory; never clean arbitrary user files.
   if (relative(root, output) !== 'dist') throw Error('Unexpected build output path.');
   try {
@@ -45,8 +45,9 @@ export async function build({ url = process.env.MULTIPLAYER_URL, vercel = proces
     await cp(resolve(root, file), resolve(output, file), { recursive: true });
   }
   await writeFile(resolve(output, 'js/network/config.js'),
-    `// Public deployment configuration. Contains no secrets.\nexport const multiplayerUrl = ${JSON.stringify(origin)};\n`);
-  console.log(`Static game built in dist/. Multiplayer: ${origin || 'same origin (local development)'}`);
+    `// Public deployment configuration. Contains no secrets.\nexport const multiplayerUrl = ${JSON.stringify(origin)};\nexport const multiplayerConfigured = ${multiplayerConfigured};\n`);
+  if (vercel && !origin) console.warn('MULTIPLAYER_URL is not set. Deploying with Race with Friend disabled. Add the public ngrok HTTPS origin in Vercel, then redeploy.');
+  console.log(`Static game built in dist/. Multiplayer: ${origin || (vercel ? 'not configured' : 'same origin (local development)')}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

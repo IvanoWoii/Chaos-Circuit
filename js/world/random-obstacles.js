@@ -22,20 +22,34 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
     const point = layout.getTrackPoint(spec.distance);
     if (spec.kind === 'ramp' || spec.kind === 'spinner') {
       const rampWidth = Math.min(layout.TRACK.width * 0.85, Math.max(5.2, (spec.size || 2.5) * 2));
-      const rampLength = 5.0, lipHeight = 1.15;
-      const pitch = Math.atan2(lipHeight, rampLength);
-      const centerY = lipHeight / 2;
+      const visibleLength = 6.0, lipHeight = 1.15;
+      const pitch = Math.atan2(lipHeight, visibleLength);
       const qYaw = new CANNON.Quaternion();
       qYaw.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), point.heading);
       const qPitch = new CANNON.Quaternion();
       qPitch.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -pitch);
       const rampQ = qYaw.mult(qPitch);
 
+      // The physics box is extended backwards underground:
+      // Front of box is at s = -4.8 (top edge at y = -0.345m, so front face is completely underground)
+      // Back of box is at s = +3.0 (top surface at y = 1.15m lip)
+      // At s = -3.0 (entry), top surface emerges flush through the road floor (y = 0.00m) with zero ledge
+      const zBoxBack = visibleLength / 2;
+      const zBoxFront = -4.8;
+      const boxLength = zBoxBack - zBoxFront;
+      const sBoxCenter = (zBoxBack + zBoxFront) / 2;
+      const halfThickness = 0.2;
+
+      const ySurfCenter = ((sBoxCenter + visibleLength / 2) / visibleLength) * lipHeight;
+      const boxCenterY = ySurfCenter - halfThickness * Math.cos(pitch);
+      const boxCenterX = point.x + sBoxCenter * Math.sin(point.heading);
+      const boxCenterZ = point.z + sBoxCenter * Math.cos(point.heading);
+
       const ramp = body({
         mass: 0,
         type: CANNON.Body.STATIC,
-        position: new CANNON.Vec3(point.x, centerY, point.z),
-        shape: new CANNON.Box(new CANNON.Vec3(rampWidth / 2, 0.15, rampLength / 2)),
+        position: new CANNON.Vec3(boxCenterX, boxCenterY, boxCenterZ),
+        shape: new CANNON.Box(new CANNON.Vec3(rampWidth / 2, halfThickness, boxLength / 2)),
       });
       ramp.obstacleKind = 'ramp';
       ramp.quaternion.copy(rampQ);
@@ -44,31 +58,76 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
       ramp.angularVelocity.setZero();
       ramp.updateAABB();
 
+      // Three.js visual: A smooth wedge starting flush at y = 0
       const visual = new THREE.Group();
-      visual.position.set(point.x, centerY, point.z);
-      visual.quaternion.set(rampQ.x, rampQ.y, rampQ.z, rampQ.w);
+      visual.position.set(point.x, 0, point.z);
+      visual.quaternion.set(qYaw.x, qYaw.y, qYaw.z, qYaw.w);
       group.add(visual);
 
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(rampWidth, 0.3, rampLength), paint);
+      // Custom wedge geometry for the ramp deck and body
+      const hw = rampWidth / 2, hl = visibleLength / 2, sunk = 0.25;
+      const wedgeGeom = new THREE.BufferGeometry();
+      const vertices = [], normals = [], uvs = [];
+      const addQuad = (p1, p2, p3, p4, n) => {
+        vertices.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
+        normals.push(...n, ...n, ...n, ...n, ...n, ...n);
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1);
+      };
+      const addTri = (p1, p2, p3, n) => {
+        vertices.push(...p1, ...p2, ...p3);
+        normals.push(...n, ...n, ...n);
+        uvs.push(0, 0, 1, 0, 1, 1);
+      };
+      const pTL_top = [-hw, lipHeight, hl], pTR_top = [hw, lipHeight, hl];
+      const pBL_top = [-hw, 0, -hl], pBR_top = [hw, 0, -hl];
+      const pTL_bot = [-hw, -sunk, hl], pTR_bot = [hw, -sunk, hl];
+      const pBL_bot = [-hw, -sunk, -hl], pBR_bot = [hw, -sunk, -hl];
+      const deckNormal = [0, Math.cos(pitch), -Math.sin(pitch)];
+
+      addQuad(pBL_top, pBR_top, pTR_top, pTL_top, deckNormal); // Top inclined deck
+      addQuad(pTL_top, pTR_top, pTR_bot, pTL_bot, [0, 0, 1]); // Back lip wall
+      addTri(pBL_bot, pBL_top, pTL_top, [-1, 0, 0]); // Left side wall
+      addTri(pBL_bot, pTL_top, pTL_bot, [-1, 0, 0]);
+      addTri(pBR_bot, pTR_top, pBR_top, [1, 0, 0]); // Right side wall
+      addTri(pBR_bot, pTR_bot, pTR_top, [1, 0, 0]);
+      addQuad(pBL_bot, pBR_bot, pBR_top, pBL_top, [0, 0, -1]); // Buried front toe
+      addQuad(pBL_bot, pTL_bot, pTR_bot, pBR_bot, [0, -1, 0]); // Bottom face
+
+      wedgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      wedgeGeom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+      wedgeGeom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+
+      const deck = new THREE.Mesh(wedgeGeom, paint);
       deck.castShadow = true; deck.receiveShadow = true;
       visual.add(deck);
 
-      for (const z of [-1.3, 0.1, 1.5]) {
-        const stripe = new THREE.Mesh(new THREE.BoxGeometry(rampWidth * 0.88, 0.32, 0.45), yellow);
-        stripe.position.set(0, 0, z);
+      // Smooth threshold apron plate at the bottom entrance
+      const apron = new THREE.Mesh(new THREE.BoxGeometry(rampWidth + 0.1, 0.02, 0.45), dark);
+      apron.position.set(0, 0.01, -hl);
+      apron.castShadow = true; apron.receiveShadow = true;
+      visual.add(apron);
+
+      // Bright yellow hazard stripes along the inclined surface
+      for (const z of [-1.5, 0.0, 1.5]) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(rampWidth * 0.88, 0.024, 0.45), yellow);
+        stripe.position.set(0, ((z + hl) / visibleLength) * lipHeight + 0.012, z);
+        stripe.rotation.x = -pitch;
         stripe.castShadow = true;
         visual.add(stripe);
       }
+
+      // Side curb guard rails
       for (const side of [-1, 1]) {
-        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.5, rampLength), dark);
-        curb.position.set(side * (rampWidth / 2 + 0.15), 0.12, 0);
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.35, visibleLength + 0.4), dark);
+        curb.position.set(side * (hw + 0.14), lipHeight / 2 + 0.1, 0);
+        curb.rotation.x = -pitch;
         curb.castShadow = true;
         visual.add(curb);
       }
 
       moving.push({ body: ramp, node: visual, isStatic: true });
       sensors.push(() => [
-        { kind: 'ramp', x: point.x, z: point.z, distance: spec.distance, width: rampWidth, length: rampLength }
+        { kind: 'ramp', x: point.x, z: point.z, distance: spec.distance, width: rampWidth, length: visibleLength }
       ]);
     } else {
       const length = 5.05, radius = 1.05;

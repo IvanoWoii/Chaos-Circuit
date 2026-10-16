@@ -1,14 +1,15 @@
 import * as THREE from 'three';
-import { TRACK, TRACK_LENGTH, getTrackPoint, getGridSlot, getWallSegments, createWaypoints } from './track-layout.js';
+import { defaultLayout } from './track-layout.js';
 
 /** A physical slab carries the asphalt and infield; the barriers enclose the road. */
-export function createTrack(scene, physics) {
+export function createTrack(scene, physics, { layout = defaultLayout, map = null } = {}) {
+  const { TRACK, TRACK_LENGTH, getTrackPoint, getGridSlot, getWallSegments, createWaypoints } = layout;
   const group = new THREE.Group();
-  group.name = 'rookie-ring';
+  group.name = map?.name || 'rookie-ring';
   scene.add(group);
   const bodies = [];
   const surface = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
-  const grass = surface('#becaa4');
+  const grass = surface(map?.grass || '#becaa4');
   const asphalt = surface('#64705f');
   const cream = surface('#f4efd9');
   const orange = surface('#ed7955');
@@ -28,7 +29,7 @@ export function createTrack(scene, physics) {
 
   // One robust Box foundation supports the complete circuit, including the infield.
   // Asphalt is painted onto its top. No fragile thin Trimesh collision surface is used.
-  const floor = { size: [64, 0.8, 40], x: 0, y: -0.4, z: 0, material: physics.materials.road };
+  const floor = { size: [Math.max(64, 2 * (TRACK.straightHalf + TRACK.radius + TRACK.width / 2 + 4)), 0.8, Math.max(40, 2 * (TRACK.radius + TRACK.width / 2 + 4))], x: 0, y: -0.4, z: 0, material: physics.materials.road };
   box(floor.size, grass, floor.x, floor.y, floor.z);
   bodies.push(physics.addStaticBox(floor));
 
@@ -55,7 +56,7 @@ export function createTrack(scene, physics) {
 
   // Low painted rumble strips never obstruct cars. Only the taller walls collide.
   for (let index = 0; index < 112; index++) {
-    for (const offset of [-3.72, 3.72]) {
+    for (const offset of [-TRACK.width / 2 + 0.28, TRACK.width / 2 - 0.28]) {
       const point = getTrackPoint(index / 112 * TRACK_LENGTH, offset);
       box([0.4, 0.025, 1.2], index % 2 ? cream : orange, point.x, 0.027, point.z, point.heading);
     }
@@ -66,21 +67,21 @@ export function createTrack(scene, physics) {
   }
 
   // Finish line is at distance zero. Four staggered rows sit behind it.
-  for (let row = 0; row < 2; row++) for (let column = 0; column < 16; column++) {
+  for (let row = 0; row < 2; row++) for (let column = 0; column < TRACK.width / 0.5; column++) {
     box([0.5, 0.02, 0.5], (row + column) % 2 ? dark : cream, TRACK.startX + row * 0.5, 0.03,
       TRACK.radius - TRACK.width / 2 + 0.25 + column * 0.5);
   }
   for (let index = 0; index < 8; index++) {
     const slot = getGridSlot(index);
-    box([3.7, 0.015, 0.065], cream, slot.x, 0.035, slot.z - 1.4);
-    box([3.7, 0.015, 0.065], cream, slot.x, 0.035, slot.z + 1.4);
-    box([0.065, 0.015, 2.8], cream, slot.x - 1.85, 0.035, slot.z);
+    const tx = Math.sin(slot.heading), tz = Math.cos(slot.heading);
+    for (const side of [-1,1]) box([0.065,0.015,3.7],cream,slot.x+tz*side*1.4,.035,slot.z-tx*side*1.4,slot.heading);
+    box([2.8,0.015,.065],cream,slot.x-tx*1.85,.035,slot.z-tz*1.85,slot.heading);
   }
 
   // Raised infield planters stay behind the inner wall and remain out of the race.
   box([12, 0.25, 5.5], pale, -4.5, 0.13, -0.3);
   box([10.5, 0.32, 4], grass, -4.5, 0.25, -0.3);
-  for (const [x, z, scale] of [[-11, -3, 1], [-8, -2, 1.4], [-5, -2.5, 1.1], [17, 0, 1.3], [19, -2, 0.9]]) {
+  for (const [x, z, scale] of [[-11, -3, 1], [-8, -2, 1.4], [-5, -2.5, 1.1], [17, 0, 1.3], [19, -2, 0.9]].filter(([x,z]) => !layout.isOnRoad(x,z,-2))) {
     box([0.3, 2 * scale, 0.3], dark, x, scale, z);
     const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.1 * scale, 2.7 * scale, 5), surface('#8da477'));
     leaves.position.set(x, 2.6 * scale, z);
@@ -104,6 +105,11 @@ export function createTrack(scene, physics) {
     group,
     waypoints: createWaypoints(),
     staticBodyCount: bodies.length,
-    dispose() { bodies.forEach((body) => physics.world.removeBody(body)); },
+    dispose() {
+      bodies.forEach((body) => physics.world.removeBody(body));
+      const geometries = new Set(), materials = new Set();
+      group.traverse(node => { if (node.geometry) geometries.add(node.geometry); if (node.material) materials.add(node.material); });
+      geometries.forEach(item => item.dispose()); materials.forEach(item => item.dispose()); group.removeFromParent();
+    },
   };
 }

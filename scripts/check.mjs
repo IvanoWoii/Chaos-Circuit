@@ -14,7 +14,7 @@ async function scripts(directory) {
   return files;
 }
 
-const files = [...await scripts(resolve(root, 'js')), ...await scripts(resolve(root, 'scripts'))];
+const files = [...await scripts(resolve(root, 'js')), ...await scripts(resolve(root, 'scripts')), ...await scripts(resolve(root, 'server'))];
 for (const file of files) {
   // Parse without evaluating browser code, downloading libraries, or spawning processes.
   new SourceTextModule(await readFile(file, 'utf8'), { identifier: file });

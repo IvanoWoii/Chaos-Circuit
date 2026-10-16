@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { createCarVisual } from './car-visual.js';
-import { getGridSlot } from './track-layout.js';
+import { defaultLayout } from './track-layout.js';
 
 /** Parked grid only: roster changes repaint existing meshes without allocating anew. */
-export function createStartingGrid(parent) {
+export function createStartingGrid(parent, layout = defaultLayout) {
+  const { getGridSlot } = layout;
   const group = new THREE.Group();
   group.name = 'starting-grid';
   parent.add(group);
@@ -14,8 +15,10 @@ export function createStartingGrid(parent) {
     getLabelTargets() { return labelTargets; },
     update(entries) {
       labelTargets = [];
+      cars.forEach((car, index) => { car.group.visible = index < entries.length; });
       entries.forEach((entry, index) => {
         const car = cars[index] ||= createCarVisual(entry.color);
+        car.group.visible = true;
         if (!car.group.parent) group.add(car.group);
         const slot = getGridSlot(index);
         car.group.position.set(slot.x, slot.y + 0.015, slot.z);

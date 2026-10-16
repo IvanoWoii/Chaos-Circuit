@@ -1,14 +1,16 @@
 import * as CANNON from 'cannon-es';
-import { TRACK_LENGTH, getTrackPoint, isOnRoad } from '../world/track-layout.js';
-import { chooseDrivingPlan, senseCar, MAX_LANE_OFFSET } from './tactics.js';
+import { defaultLayout } from '../world/track-layout.js';
+import { createDrivingTactics, MAX_LANE_OFFSET } from './tactics.js';
 
 const UP = new CANNON.Vec3(0, 1, 0);
 const FORWARD = new CANNON.Vec3(0, 0, 1);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const wrapAngle = (value) => Math.atan2(Math.sin(value), Math.cos(value));
-const spacing = TRACK_LENGTH / 40;
 
-export function createDriverAI(car, gridIndex, random) {
+export function createDriverAI(car, gridIndex, random, layout = defaultLayout) {
+  const { TRACK_LENGTH, getTrackPoint, isOnRoad } = layout;
+  const { chooseDrivingPlan, senseCar } = createDrivingTactics(layout);
+  const spacing = TRACK_LENGTH / 40;
   const startDistance = -4 - Math.floor(gridIndex / 2) * 4.3;
   const lines = [-2.2, 2.2, -0.65, 0.65, -2.35, 2.35, -1.45, 1.45];
   const personality = { preferredLane: clamp(lines[gridIndex % lines.length] + (random() - 0.5) * 0.25, -MAX_LANE_OFFSET, MAX_LANE_OFFSET),

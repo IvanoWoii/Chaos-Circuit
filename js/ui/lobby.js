@@ -194,10 +194,12 @@ export function bindLobbyUI(store, lobby, preview) {
   applyDraft(store.getProfile(activeId));
   renderGrid(lobby.getEntries());
   return {
-    setLocked(value) {
+    loadProfile(profile) { activeId=profile?.id||null;refreshSavedOptions();applyDraft(profile); },
+    setLocked(value, reason = 'The grid is locked. Reset Race to edit drivers.') {
       locked = value;
       document.querySelector('#driver-fields').disabled = locked;
       document.querySelector('#lobby-lock-note').hidden = !locked;
+      document.querySelector('#lobby-lock-note').textContent = reason;
       clearButton.disabled = locked || lobby.playerCount === 0;
       gridList.querySelectorAll('[data-remove]').forEach((button) => { button.disabled = locked; });
     },

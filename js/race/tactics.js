@@ -1,11 +1,13 @@
-import { TRACK_LENGTH, getTrackPoint, projectTrackDistance } from '../world/track-layout.js';
-
+import { defaultLayout } from '../world/track-layout.js';
 export const MAX_LANE_OFFSET = 2.4;
+export function createDrivingTactics(layout = defaultLayout) {
+const { TRACK_LENGTH, getTrackPoint, projectTrackDistance } = layout;
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-export const trackGap = (ahead, behind) => ((ahead - behind + TRACK_LENGTH * 1.5) % TRACK_LENGTH) - TRACK_LENGTH / 2;
+const trackGap = (ahead, behind) => ((ahead - behind + TRACK_LENGTH * 1.5) % TRACK_LENGTH) - TRACK_LENGTH / 2;
 
 /** Road-relative sensing works on both bends and across the start/finish seam. */
-export function senseCar(car) {
+function senseCar(car) {
   const { position, velocity } = car.body;
   const distance = projectTrackDistance(position.x, position.z);
   const center = getTrackPoint(distance);
@@ -54,10 +56,11 @@ function hazardRisk(own, lane, speed, hazards) {
       } else {
         // Predict the actual pendulum's current angular motion, not its controller.
         const angle = hazard.angle + hazard.angularSpeed * time;
-        const x = hazard.anchorX + Math.sin(angle) * hazard.length;
+        const x = hazard.anchorX + (hazard.normalX ?? 1) * Math.sin(angle) * hazard.length;
+        const z = hazard.z + (hazard.normalZ ?? 0) * Math.sin(angle) * hazard.length;
         const y = hazard.anchorY - Math.cos(angle) * hazard.length;
         if (y - hazard.radius > 1.7) continue;
-        const dx = x - point.x, dz = hazard.z - point.z;
+        const dx = x - point.x, dz = z - point.z;
         const along = Math.abs(dx * Math.sin(point.heading) + dz * Math.cos(point.heading));
         const across = Math.abs(-dx * Math.cos(point.heading) + dz * Math.sin(point.heading));
         if (Math.hypot(Math.max(0, along - 1.65), Math.max(0, across - 1.37)) < hazard.radius + 0.1) risk += 25;
@@ -68,7 +71,7 @@ function hazardRisk(own, lane, speed, hazards) {
 }
 
 /** Choose and hold a corridor. This changes goals and forces, never body poses. */
-export function chooseDrivingPlan(own, traffic, hazards, personality, previous, desiredSpeed, time) {
+function chooseDrivingPlan(own, traffic, hazards, personality, previous, desiredSpeed, time) {
   const nearby = traffic.filter((other) => other.id !== own.id && Math.abs(trackGap(other.distance, own.distance)) < 25 && other.height < 2.8);
   const lanes = [...new Set([-2.35, 0, 2.35, personality.preferredLane, previous.lane].map((lane) => clamp(lane, -MAX_LANE_OFFSET, MAX_LANE_OFFSET)))];
   const blocker = nearby.find((other) => {
@@ -114,3 +117,7 @@ export function chooseDrivingPlan(own, traffic, hazards, personality, previous, 
   return { lane: best.lane, speedCap: best.speedCap, intent,
     holdUntil: changedLane ? time + 1.8 + personality.patience : previous.holdUntil };
 }
+
+return { senseCar, trackGap, chooseDrivingPlan };
+}
+export const { senseCar, trackGap, chooseDrivingPlan } = createDrivingTactics();

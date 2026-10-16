@@ -5,6 +5,8 @@
   const loading = document.querySelector('#loading');
 
   function showError(message) {
+    const menu = document.querySelector('#app-screen');
+    if (menu) menu.hidden = true;
     loading.hidden = true;
     errorPanel.hidden = false;
     detail.textContent = message;

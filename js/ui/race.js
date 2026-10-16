@@ -42,7 +42,7 @@ export function bindRaceUI(race, profiles, getEntries, onStateChange, onStart) {
       document.querySelector('#results-rows').replaceChildren(...snapshot.results.map((row) => {
         const tr = document.createElement('tr');
         const values = [row.finished ? String(row.position).padStart(2, '0') : 'DNF', row.name,
-          row.isBot ? 'AI' : 'LOCAL', row.finished ? formatRaceTime(row.finishTime) : `${row.completedLaps}/${snapshot.laps} laps`];
+          row.isBot ? 'AI' : race.online ? 'PLAYER' : 'LOCAL', row.finished ? formatRaceTime(row.finishTime) : `${row.completedLaps}/${snapshot.laps} laps`];
         values.forEach((value) => { const td = document.createElement('td'); td.textContent = value; tr.append(td); });
         return tr;
       }));
@@ -74,9 +74,11 @@ export function bindRaceUI(race, profiles, getEntries, onStateChange, onStart) {
 
   function displayState(snapshot) {
     const { state } = snapshot;
-    play.disabled = false;
+    play.disabled = race.canControl === false && state !== 'results';
     play.textContent = state === 'lobby' ? 'START RACE ↗' : state === 'paused' ? 'Resume race ↗' : state === 'results' ? 'View results ↗' : 'Pause race Ⅱ';
-    reset.disabled = state === 'lobby';
+    reset.disabled = state === 'lobby' || race.canControl === false;
+    document.querySelector('#results-reset').disabled = race.canControl === false;
+    document.querySelector('#results-reset').textContent = race.canControl === false ? 'Waiting for the Room Master' : 'Reset Race — Back to lobby ↗';
     reset.textContent = 'Reset Race';
     stateLabel.textContent = { lobby: 'GRID OPEN', countdown: 'GET READY', racing: 'RACE LIVE', paused: 'RACE PAUSED', results: 'CHECKERED FLAG' }[state];
     stateLabel.dataset.state = state;

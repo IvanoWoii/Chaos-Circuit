@@ -1,168 +1,140 @@
-# Chaos Circuit
+# Chaos Circuit V1.5
 
-A complete V1 prototype of a bright, low-poly, zero-player racing game. Register local players, choose their cars, then watch eight AI-driven racers collide, tumble and recover through a three-lap race. Three.js renders the world; cannon-es handles rigid-body cars, physical circuit boundaries and two moving hazards. All four development steps are implemented.
+A browser-based, zero-player racing game. Choose your car, enter a race, and watch AI drivers overtake, collide, tumble and recover. V1.5 includes the full-screen HUD, splash and main menu, car customization, randomized circuits and obstacles, and real multiplayer rooms.
 
-## V1.5, Step 1 — Full-screen race HUD
+**Public hosting:** the frontend is prepared for **Vercel**, with a separately hosted Node/Socket.IO backend. Friends share the public Vercel URL and can play from different networks. See [DEPLOYMENT.md](DEPLOYMENT.md) for the exact settings and deployment order.
 
-- The race canvas fills the browser viewport. The page does not scroll or push the race out of view.
-- Live lap, race state, elapsed time, bumps, recoveries and speed sit in a compact top HUD. Start / pause / resume, results and reset remain in the bottom control dock.
-- **Driver**, **Racers**, **Scores**, and **Camera** open floating panels, one at a time. Close a panel with its × button, its toggle, or Escape. Long panel contents scroll inside their panel while the circuit stays fixed. Panels close when the countdown or results begin.
-- Car names and position badges have transparent backgrounds and outlined text. A paint-colored **▼** stays directly above each car; thin connectors associate displaced names with their arrows in crowded packs.
-- Phone and short landscape layouts keep the controls within the viewport. Camera orbit and touch controls work through empty overlay areas.
+## Start the complete game
 
-This increment implements Step 1 only. The splash / main menu, randomized maps, and network rooms belong to the remaining V1.5 steps.
-
-## Step 1 — Scene foundation (complete)
-
-- Responsive HTML/CSS garage shell with keyboard-accessible controls.
-- Three.js WebGL 2 renderer, soft shadows, sky fill and directional lighting.
-- Orthographic isometric camera, drag/touch orbit, zoom, top view and optional automatic rotation.
-- Primitive preview car, live paint selection and a low-poly display environment.
-- Container-aware resizing, capped pixel density, hidden-tab pause, context recovery and cleanup.
-- Readable errors when WebGL or the CDN is unavailable.
-
-## Step 2 — Circuit, physics and lobby (complete)
-
-- A wide stadium circuit with asphalt, rumble strips, a checkered line, grid markings and an infield.
-- A static supporting slab and 132 wall colliders, including both sides of both bends. Rendered barriers and colliders share the same geometry descriptors.
-- cannon-es physics at a fixed 60 Hz, bounded catch-up and contact materials for road, walls, cars and hazards.
-- Player names, six paint swatches plus a custom color picker, and three racing styles with speed / mass tradeoffs.
-- Multiple named profiles and their preferences, active selection and stats stored in LocalStorage. Invalid or blocked storage falls back to a usable in-memory session with a visible notice.
-- Join / update / remove local drivers; AI automatically fills every remaining position to keep exactly eight cars.
-- Circuit / garage scene switching, preserving the original car preview and camera controls.
-- Instanced track scenery keeps hundreds of static pieces to a handful of draw calls.
-
-## Step 3 — Cars, driving AI and chaos (complete)
-
-- Eight dynamic cars with compound body / cabin / wheel colliders. Style selection determines actual body mass and desired top speed; all rotational axes stay unlocked for tumbling.
-- Force-driven waypoint pursuit, physical yaw torque, directional grip and slower cornering. Cars are never moved along a precomputed animation path.
-- Individual preferred racing lines, steering errors and throttle changes using a new random seed for each race. Local drivers and bots use the same traffic-aware AI.
-- Drivers compare passing corridors, predict nearby traffic and hold a lane choice long enough to attempt an overtake. They consider the spinner's rotation, its fixed pedestal and the ball's current motion when choosing a route and arrival speed. Impacts remain physical and unpredictable.
-- **The Sweeper:** a rigid bar spinning on a motor-driven hinge on the far straight.
-- **The Wrecking Ball:** a large dynamic sphere suspended from a hinge over the left bend. Finite driving torque keeps it swinging; a visible cable follows its actual physical pose.
-- Recovery first tries reversing and self-righting torque. Cars that remain stuck, flipped, off the road or below the world return behind their last waypoint, without receiving forward waypoint credit. Rescued cars briefly glow orange.
-- Physical simulation, pause / resume and reset support. Active races lock lobby edits; resetting unlocks them.
-- Live elapsed time, actual impact counts, recovery counts and the current fastest car's speed. Meshes interpolate physical poses for smoother rendering.
-- Cars, obstacles and race clocks stop when the browser tab is hidden; returning does not fast-forward the simulation.
-
-## Step 4 — Full races, results and leaderboard (complete)
-
-- Lobby → three-second countdown → racing → results, with pause / resume and reset during either countdown or racing.
-- Three laps, validated by 24 ordered physical checkpoint gates per circuit. The first starting-line crossing starts lap one; it does not complete a lap.
-- Crossing times interpolate within the fixed physics step to order close finishes accurately. Reverse crossings, off-road shortcuts, high flyovers and recovery teleports cannot award checkpoints.
-- Live standings and lap information, separate from the AI's steering waypoints. Recovery returns cars behind any unvalidated gate they missed.
-- Names and live positions appear above the cars, including on the starting grid. Paint-colored connectors keep labels attached to their cars when packs bunch together; labels spread into nearby rows, hide offscreen / in the garage, and follow the camera. Positions use the same validated standings as the race HUD.
-- A 1st / 2nd / 3rd podium and full classification with finish times or explicit DNF labels. Results can be closed with Esc and reopened without changing scores.
-- Local player leaderboard, persistent race appearances and +1 win for the actual race winner. AI wins never become player wins. One atomic LocalStorage write includes scores and a bounded set of processed race IDs to prevent duplicate updates.
-- Optional **Follow race** camera smoothly frames the leading unfinished car. Dragging / zooming takes manual control; the button restores automatic following. Automatic following starts off for reduced-motion preferences.
-- **Reset Race** restores the grid and hazards, closes results and unlocks the lobby while retaining players and saved scores.
-
-A race ends when everyone finishes, 40 seconds after the first finisher, or at a three-minute race-clock limit, whichever comes first. Remaining cars receive DNF; no finish time or podium place is fabricated. Every joined local profile receives one race appearance when results are finalized, including DNFs. Only a genuine winner receives a win. Aborting or refreshing an unfinished race records no result.
-
-### Try the lobby
-
-1. Open **Driver** in the floating HUD. Enter a driver name, select paint and choose All-rounder, Speedster or Bruiser.
-2. Click **Join Race** to save the driver and replace an AI car on the starting grid.
-3. Choose **+ New driver** from the saved-driver menu to add another local player.
-4. Select an existing driver to edit them. **Update car** or **Save driver** updates their already-joined car in place.
-5. Open **Camera** to switch between **Garage** for the paint preview and **Circuit** for the race. Open **Racers** to remove individual local drivers with ×, or use **Clear grid**; saved profiles remain available.
-6. Refresh: saved profiles and their selected preferences return. The session grid resets to eight AI cars until you join again.
-
-Preferences save explicitly on **Save driver** or **Join Race / Update car**. The UI marks unsaved changes. Profiles use `chaos-circuit.profiles.v1`; existing Step 2 / 3 profiles remain compatible. Wins and race appearances update only when race results are finalized. No player data is sent to a server.
-
-### Run a race
-
-1. Join any local drivers you want in the race, or leave all eight slots to AI.
-2. Click **START RACE** below the circuit. Cars wait through 3, 2, 1, then GO. Each new race randomizes driving decisions.
-3. Watch the spinner on the far straight and the swinging ball on the left bend. **Racers** now shows live standings. Open **Camera** for **Follow race**, **Top view**, and **Garage**; orbit and zoom also work directly on the canvas. The race continues while panels are open.
-4. Use **Pause race** / **Resume race** to pause / continue the same state. Pausing also freezes countdown and finish-window clocks.
-5. Check the podium and full classification at the checkered flag. Local wins and race counts appear immediately in the **Scores** panel and survive refresh.
-6. Use **Reset Race — Back to lobby** to return to the starting grid. Your roster, saved profiles and scores remain intact. Resetting before results aborts the race without awarding scores.
-
-The V1 cars use compound primitives rather than a suspension / tire simulation. Ground contacts use low rolling resistance, while AI applies directional grip and propulsion as forces only while supported. Impacts can still send cars flying; there is no airborne propulsion or locked upright orientation. Recovery assists keep a bad crash from permanently ending a car's participation.
-
-## Preview locally
-
-Serve the directory over HTTP; ES modules cannot reliably load from a double-clicked `file://` page.
-
-If Node.js is already available, from this directory:
+The host/developer needs Node.js 20+ and npm. Players only need a browser with WebGL 2 and an internet connection for the pinned browser libraries.
 
 ```sh
-node scripts/serve.mjs
+npm ci
+npm start
 ```
 
-Then open **http://localhost:8080**. There are no npm dependencies and no install or build step. `npm start` also works (`npm.cmd start` in PowerShell if script execution is restricted). Alternatively, use an existing static web server or, if Python is installed, run `python -m http.server 8080 --bind 127.0.0.1`.
+Open **http://localhost:3000**. In PowerShell, use `npm.cmd ci` and `npm.cmd start` if script execution is restricted. Dependencies are already installed in the current working copy. Local development needs no frontend build; `npm run build` prepares the static `dist/` directory for Vercel.
 
-Players only need a current browser with WebGL 2 enabled and an internet connection. Hosting these static files makes the game accessible by URL with no player installation. Three.js and cannon-es load from version-pinned jsDelivr URLs. Google Fonts is optional; system fonts are the fallback. Nothing is published by this local scaffold.
+The Node server serves the game and Socket.IO on the same origin. It listens on `0.0.0.0:3000` by default. Friends on the same network open **http://YOUR-COMPUTER-LAN-IP:3000**, then create or join a room. `localhost` on a friend's device refers to their device, so share the host computer's LAN address. The host's firewall must allow the chosen port for LAN connections.
+
+For internet play, host the Node backend on a persistent HTTP/WebSocket service and deploy the frontend to Vercel. Set Vercel's `MULTIPLAYER_URL` to the backend's public HTTPS origin, and the backend's `ALLOWED_ORIGINS` to the Vercel frontend origin. Set `PORT` to the hosting provider's assigned port; `HOST` can override the listening address. See [the deployment guide](DEPLOYMENT.md). This workspace has not been published to an internet host.
+
+The older static preview remains available through `npm run start:solo` or `node scripts/serve.mjs` on port 8080. It supports local AI racing but does not provide the multiplayer room service. Use port 3000 for the complete V1.5 game.
+
+LocalStorage belongs to an origin, including its port. Profiles previously saved on `localhost:8080` remain there; they are not automatically copied to `localhost:3000`. To use the old origin with the new server, stop the old static preview and launch the new server with `PORT=8080`. In PowerShell:
+
+```powershell
+$env:PORT = '8080'
+npm.cmd start
+```
+
+## Play
+
+1. The animated splash opens the main menu once the scene is ready. Reduced-motion preferences disable the splash animation and shorten its display.
+2. Enter your driver name. **Customize Car** changes only color and racing style, then saves to LocalStorage.
+3. **Race with AI** starts an eight-car race with your driver and seven bots. Each race gets a different circuit from the previous race and a fresh obstacle configuration.
+4. **Race with Friend** opens the room browser. Create a room or join using a six-character room code or the active-room list.
+
+The floating HUD keeps the canvas fixed to the viewport. **Driver**, **Racers**, **Scores**, and **Camera** open one panel at a time. Close panels using their button, ×, or Escape. Long panel content scrolls internally while the race stays visible. Start/pause/resume/reset controls remain at the bottom. **Menu** leaves the current race or room.
+
+Names and positions have transparent backgrounds. Paint-colored **▼** arrows stay directly above their cars, with thin connectors when crowded names spread apart. Positions come from validated race progress.
+
+The **Camera** panel includes orbit presets, **Follow race**, automatic rotation and the garage preview. Dragging or zooming takes manual camera control. Follow race restores automatic tracking.
+
+## Room rules
+
+- A room supports **2–8 total racers**, including humans and AI. The creator becomes Room Master.
+- Room codes and the active-room list are shared across connected browsers on the same server. Rooms are public within that server.
+- The Room Master can change the limit, manually add or remove AI racers, start, pause, resume and reset races. There is no automatic AI filling in multiplayer rooms.
+- At least two racers are required to start. A solo host can add an AI racer. A room can start below its limit.
+- Full rooms and running races reject new entrants. Existing disconnected participants can reconnect to their current race.
+- A disconnected participant's seat is reserved for **30 seconds**. A connected human becomes Room Master if the master disconnects. Returning participants keep their identity but do not displace the new master.
+- Reset returns everyone to the same room. The next race uses a different map and fresh obstacle settings.
+- Empty rooms are removed. Rooms and reconnection sessions are in memory and disappear when the server restarts. The prototype runs in one Node process and allows up to 12 rooms.
+
+The server checks membership, limits and master permissions for every command. Clients never submit car poses, finish times or win claims. The server advances cannon-es at 60 steps per second and sends authoritative car/obstacle snapshots at 20 Hz. Clients interpolate those snapshots with a small render delay. Physics and race clocks continue on the server when a player's tab is hidden or disconnected.
+
+Session tokens use sessionStorage when available, so refreshing the same tab can restore its seat during the grace period. Profiles and scores use LocalStorage. Each browser records only its own participating profile's online result, once per race. This is a local score board, not a server account system.
+
+## Circuits and chaos
+
+| Circuit | Layout |
+| --- | --- |
+| Rookie Ring | Medium stadium circuit with an 8 m road |
+| Sunset Speedway | Longer straights, tighter bends, 9 m road |
+| Mint Motor Bowl | Short straights, broad circular bends, 9 m road |
+| Canyon Sprint | Compact circuit with tighter bends and an 8 m road |
+
+Every race rolls three hazards, including a hinged spinner and a suspended wrecking ball, plus another randomized spinner or ball. Placement, initial phase, size, swing amplitude, speed and direction derive from the race seed. Hazards remain away from the starting grid and spaced around the circuit. Rendered walls, physical colliders, grid positions, AI sensing and checkpoint gates all consume the same per-race layout.
+
+Cars use compound rigid bodies with physical propulsion and yaw torque. Drivers have preferred lines, evaluate passing routes and nearby traffic, and consider moving obstacles. Collisions can still spin or launch them. Recovery tries reversing and self-righting before returning a stranded car behind its next required checkpoint.
+
+A race lasts three laps. Twenty-four ordered gates per circuit validate progress. Reverse crossings, off-road shortcuts, high flyovers and recovery teleports do not award checkpoints. The starting-line crossing begins lap one. Finish times interpolate inside the physics step.
+
+The race ends when everyone finishes, 40 seconds after the winner, or at a three-minute race-clock limit. Remaining cars receive DNF; their finish times are not fabricated. Results award one race appearance per participating local profile and one win to the actual winner. Aborting a solo race records no result. Local AI races pause when the tab is hidden; online races continue on the server.
 
 ## Project structure
 
 ```text
-index.html                 Accessible page shell and pinned dependency import map
-styles.css                 Arcade UI and responsive layouts
-hud.css                    Full-viewport stage, floating panels and transparent labels
-favicon.svg                Local vector mark
+index.html                 HUD, splash, menu, customization, rooms and results
+styles.css                 Shared arcade UI components
+hud.css                    Full-screen stage, panels and transparent car labels
+menus.css                  Menu, splash animation and room screens
 js/
-  boot.js                  Startup and CDN / file-protocol errors
-  main.js                  Composition root and render lifecycle
-  config.js                Shared game and camera defaults
-  core/
-    scene.js               Renderer, resizing and resource disposal
-    camera.js              Camera presets, OrbitControls and automatic following
-    lighting.js            Sky fill, sun, shadows and rim light
-    physics.js             Fixed-step Cannon world and static box helper
-  data/
-    profiles.js            Validated, versioned LocalStorage profile store
+  main.js                  Composition and rendering lifecycle
+  core/                    Scene, camera, lights and fixed-step physics
+  data/profiles.js         Validated LocalStorage preferences and scores
+  network/client.js       Lazy Socket.IO connection, sessions and commands
   race/
-    lobby.js               Session roster with automatic AI filling
-    car.js                 Compound dynamic car bodies and pose synchronization
-    ai.js                  Imperfect waypoint driving and recovery assistance
-    tactics.js             Traffic sensing, passing corridors and hazard prediction
-    simulation.js          Physical driving lifecycle, fixed-step hooks and impact stats
-    controller.js          Countdown, racing, pause, finish window and score recording
-    progress.js            Independent gate crossings, laps and finish classification
+    session.js            Stable UI facade for local and online race worlds
+    world.js              Isolated race world shared by browser and server
+    simulation.js         Car/obstacle physics, snapshots and remote rendering
+    controller.js         Countdown, pause, finish window and results
+    progress.js           Ordered checkpoint and finish validation
+    car.js                Compound rigid-body cars and interpolated visuals
+    ai.js                 Driving forces, steering and recovery
+    tactics.js            Per-layout sensing, overtaking and hazard prediction
+    lobby.js              Local roster and automatic solo AI filling
   world/
-    preview.js             Original car and garage staging
-    track-layout.js        Shared circuit path, wall descriptors and grid slots
-    track.js               Circuit meshes, scenery and physical boundaries
-    car-visual.js          Reusable primitive car mesh and recovery flash
-    grid.js                Starting-grid visual synchronization
-    obstacles.js           Physical spinner, swinging ball and constraints
+    maps.js               Circuit pool and seeded obstacle configurations
+    track-layout.js       Independent layout factories and projection helpers
+    track.js              Circuit geometry and static colliders
+    random-obstacles.js   Seeded dynamic hinges, motors, balls and snapshots
+    obstacles.js          Original reference hazards used by legacy fixtures
+    grid.js               Parked grid visuals and label targets
+    car-visual.js         Primitive car meshes
+    preview.js            Garage preview
   ui/
-    controls.js            Camera and scene-switching controls
-    lobby.js               Profile form and roster DOM bindings
-    race.js                Race HUD, countdown, live standings and results dialog
-    leaderboard.js         Persistent local leaderboard rendering
-    car-labels.js          Projected names, ranks and pack label spacing
-    hud.js                 Floating panel toggles, dismissal and race-state integration
-  utils/
-    random.js              Seeded driving randomness
+    app-flow.js           Splash/menu/customization/room navigation
+    hud.js                Floating-panel state and keyboard dismissal
+    race.js               Race controls, live standings and results
+    lobby.js              Local driver profile and grid controls
+    leaderboard.js        Saved local score board
+    car-labels.js         Projected names, ranks, arrows and spacing
+    controls.js           Camera controls
+server/
+  index.js                HTTP + Socket.IO server and simulation clock
+  rooms.js                Room permissions, sessions and authoritative races
+  static.js               Public asset serving and health endpoint
 scripts/
-  serve.mjs                Dependency-free local preview server
-  check.mjs                JavaScript syntax and import-map checks
-  engine-harness.mjs       Shared in-memory browser engine loader for tests
-  test.mjs                 Runs all five test suites without subprocesses
-  test-step2.mjs            Profile, roster, layout and engine integration checks
-  test-step3.mjs            Dynamic cars, AI, hazard, recovery and lifecycle checks
-  test-step4.mjs            Checkpoint, race-state, finish-order and score checks
-  test-racing-ai.mjs        Passing decisions, physical overtaking and label spacing
-  test-hud.mjs              HUD, profile/race flow, camera and arrow DOM integration
+  serve.mjs               Optional static solo preview
+  check.mjs               Syntax and import-map validation
+  test.mjs                All eight automated suites
+  test-v15.mjs            New maps and real multi-client Socket.IO integration
+  test-app-flow.mjs       Menus and room UI with real physics and sockets
 ```
 
-Run `node --experimental-vm-modules scripts/check.mjs` (or `npm run check`) to check the JavaScript syntax and dependency map. Node may print an experimental VM modules warning; the check only parses source and never executes it. This does not replace a browser / WebGL check.
+## Verification
 
-Run `node --experimental-vm-modules scripts/test.mjs` (or `npm test`) for all 42 checks. This needs Node 20+ and internet access: the real pinned Three.js and cannon-es modules load in memory, without installation. Step 2 checks cover profiles, storage, lobby, circuit geometry and static collisions. Step 3 checks cover physical cars, driving, hazard contacts / tumbling, frame-rate agreement, recovery and lifecycle cleanup. Step 4 checks cover ordered gates, three laps, reverse / off-road / teleport rejection, close finish order, persistent scores, countdown / race pause, DNFs / timeouts, complete single-player and eight-car races, and aborted-race resets. The additional AI checks cover preferred lines, passing decisions, merging traffic, finish-line wrapping, pedestal avoidance, a local car physically overtaking a bot without recovery, and clustered label spacing at desktop / mobile sizes and screen edges. The tests do not launch or visually verify a browser.
+```sh
+npm run check
+npm test
+```
 
-Run `npm run test:racing-ai` (or `node --experimental-vm-modules scripts/test-racing-ai.mjs`) for only the passing and label checks.
+The complete suite contains **59 checks**. It covers persistent preferences, room permissions and limits, reconnect/host transfer, isolated simultaneous rooms, identical authoritative snapshots, full races on all maps, race scoring, real overtaking, labels, HUD behavior and the splash/menu/customization/room flow. Deployment checks also cover frontend packaging and cross-origin room connections. Use `npm run test:deployment` for hosting integration checks, or `npm run test:v15` or `npm run test:app-flow` for the new feature suites alone.
 
-Run `npm run test:hud` (or `node --experimental-vm-modules scripts/test-hud.mjs`) for four DOM integration checks covering panel switching, race flow, camera controls, and projected arrows. This loads pinned LinkeDOM 0.18.12 in memory; it verifies DOM behavior, not CSS layout, native focus management or WebGL rendering. The complete runner includes these four checks, for 42 checks total.
+Tests require installed Node dependencies and internet access for pinned browser-engine and LinkeDOM helpers. The tests use real Three.js/cannon-es and real Socket.IO clients. DOM fixtures do not simulate native CSS layout, focus management or WebGL rendering. Native browser visuals still require browser review.
 
-For only the new race checks, run `node --experimental-vm-modules scripts/test-step4.mjs` or `npm run test:step4`. The physical simulation remains separately testable through `scripts/test-step3.mjs`.
+Versions: Three.js **0.170.0**, cannon-es **0.20.0**, Socket.IO **4.8.3**. Server dependencies and their integrity hashes are locked in `package-lock.json`. Browser libraries use pinned import-map URLs. Google Fonts is optional.
 
-## Implementation notes
-
-Physics and race state stay separate from rendering. `simulation.js` applies AI and obstacle forces through the physics module's fixed-step callback, then synchronizes interpolated meshes from bodies. After each fixed step, `controller.js` samples physical poses into `progress.js`. That module validates checkpoints independently of the AI's steering waypoints and rejects samples spanning a pose revision / teleport.
-
-The application has no account system or online multiplayer. Multiple local players share one browser/device, and profiles / scores use that browser origin's LocalStorage. Clearing site data removes them. Race timing is simulation time, so background tabs and explicit pauses do not consume countdown or race deadlines. The underlying physical sandbox remains available as a module for engine tests, while the player-facing UI runs full races.
-
-Engine reference: [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html), [OrbitControls](https://threejs.org/docs/pages/OrbitControls.html), [cannon-es World](https://pmndrs.github.io/cannon-es/docs/classes/World.html), [Body](https://pmndrs.github.io/cannon-es/docs/classes/Body.html) and [HingeConstraint](https://pmndrs.github.io/cannon-es/docs/classes/HingeConstraint.html).
+References: [Socket.IO rooms](https://socket.io/docs/v4/rooms/), [Socket.IO server API](https://socket.io/docs/v4/server-api/), [Socket.IO client API](https://socket.io/docs/v4/client-api/), [Three.js](https://threejs.org/docs/), [cannon-es](https://pmndrs.github.io/cannon-es/docs/).

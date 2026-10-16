@@ -1,157 +1,89 @@
 import { createScene } from './core/scene.js';
 import { createPreview } from './world/preview.js';
-import { bindControls } from './ui/controls.js';
-import { createPhysics } from './core/physics.js';
-import { createTrack } from './world/track.js';
-import { createStartingGrid } from './world/grid.js';
 import { createProfileStore } from './data/profiles.js';
 import { createLobby } from './race/lobby.js';
+import { createRaceSession } from './race/session.js';
+import { bindControls } from './ui/controls.js';
 import { bindLobbyUI } from './ui/lobby.js';
-import { createSimulation } from './race/simulation.js';
-import { createRaceController } from './race/controller.js';
 import { bindRaceUI } from './ui/race.js';
 import { bindLeaderboard } from './ui/leaderboard.js';
 import { createCarLabels } from './ui/car-labels.js';
 import { bindHUD } from './ui/hud.js';
+import { bindAppFlow } from './ui/app-flow.js';
 
-/** Rendering, physics, lobby and full race flow meet only at this root. */
+/** Composition root: menus own navigation, session owns race mode, scene owns rendering. */
 export function startGame() {
   const viewport = document.querySelector('#viewport');
   const app = createScene(viewport);
-  let physics;
-  let controlsUI;
-  let lobbyUI;
-  let raceUI;
-  let leaderboardUI;
-  let carLabels;
-  let hudUI;
-  let race;
-  let simulation;
-  let unsubscribeGrid;
-  let grid;
-  let track;
-  try {
-    physics = createPhysics();
-    const preview = createPreview(app.scene);
-    track = createTrack(app.scene, physics);
-    grid = createStartingGrid(track.group);
-    simulation = createSimulation(track.group, physics);
-    const lobby = createLobby();
-    const profiles = createProfileStore();
-    grid.update(lobby.getEntries());
-    unsubscribeGrid = lobby.subscribe((entries) => grid.update(entries));
-    function setWorld(mode) {
-      const garage = mode === 'garage';
-      preview.group.visible = garage;
-      track.group.visible = !garage;
-      document.querySelector('#scene-label').textContent = garage ? 'GARAGE PREVIEW' : 'ROOKIE RING';
-      document.querySelector('#scene-caption-copy').textContent = garage ? '01 / YOUR NEXT TROUBLEMAKER' : 'ROOKIE RING / 8 RACERS';
-    }
-    setWorld('track');
-    controlsUI = bindControls(app.rig, setWorld);
-    lobbyUI = bindLobbyUI(profiles, lobby, preview);
-    race = createRaceController(simulation, profiles);
-    leaderboardUI = bindLeaderboard(profiles);
-    hudUI = bindHUD();
-    raceUI = bindRaceUI(race, profiles, () => lobby.getEntries(), (state) => {
-      grid.group.visible = state === 'lobby';
-      lobbyUI.setLocked(state !== 'lobby');
-      hudUI.onRaceState(state);
-      if (state === 'lobby') controlsUI.setWorld('track');
-    }, () => controlsUI.setWorld('track'));
-    carLabels = createCarLabels(viewport);
-    app.renderer.render(app.scene, app.rig.camera);
-  } catch (error) {
-    controlsUI?.dispose();
-    lobbyUI?.dispose();
-    raceUI?.dispose();
-    leaderboardUI?.dispose();
-    carLabels?.dispose();
-    hudUI?.dispose();
-    race?.dispose();
-    simulation?.dispose();
-    unsubscribeGrid?.();
-    grid?.dispose();
-    physics?.dispose();
-    app.dispose();
-    throw error;
+  let game, controls, lobbyUI, raceUI, scores, labels, hud, flow, unsubscribeRoster;
+  let currentMap, worldMode = 'track';
+  const events = new AbortController(), options = { signal: events.signal };
+  function dispose() {
+    events.abort(); flow?.dispose(); controls?.dispose(); lobbyUI?.dispose(); raceUI?.dispose();
+    scores?.dispose(); labels?.dispose(); hud?.dispose(); unsubscribeRoster?.(); game?.dispose(); app.dispose();
   }
+  try {
+    const preview = createPreview(app.scene);
+    const profiles = createProfileStore(), lobby = createLobby();
+    game = createRaceSession(app.scene, profiles, lobby.getEntries(), {
+      onMap(map) {
+        currentMap = map;
+        document.querySelector('#scene-label').textContent = map.name.toUpperCase();
+        document.querySelector('#scene-caption-copy').textContent = `${map.name.toUpperCase()} / NEW CHAOS`;
+        controls?.setWorld('track');
+      },
+      onRemoteResults: (id, rows) => flow?.recordResults(id, rows),
+    });
+    function setWorld(mode) {
+      worldMode = mode;
+      preview.group.visible = mode === 'garage';
+      game.world.track.group.visible = mode !== 'garage';
+      document.querySelector('#scene-label').textContent = mode === 'garage' ? 'GARAGE PREVIEW' : currentMap.name.toUpperCase();
+      document.querySelector('#scene-caption-copy').textContent = mode === 'garage' ? 'YOUR NEXT TROUBLEMAKER' : `${currentMap.name.toUpperCase()} / ${game.online ? 'ROOM RACE' : 'AI RACE'}`;
+    }
+    controls = bindControls(app.rig, setWorld); setWorld('track');
+    lobbyUI = bindLobbyUI(profiles, lobby, preview);
+    unsubscribeRoster = lobby.subscribe(entries => { if (!game.online) game.setRoster(entries); });
+    scores = bindLeaderboard(profiles); hud = bindHUD();
+    raceUI = bindRaceUI(game, profiles, () => lobby.getEntries(), state => {
+      game.world.grid.group.visible = state === 'lobby';
+      lobbyUI.setLocked(game.online || state !== 'lobby', game.online ? 'Online races use your menu car. Leave the room to change your driver preferences.' : undefined);
+      hud.onRaceState(state);
+      if (state === 'lobby') controls.setWorld('track');
+    }, () => controls.setWorld('track'));
+    labels = createCarLabels(viewport);
+    flow = bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview, hud });
+    app.renderer.render(app.scene, app.rig.camera);
+  } catch (error) { dispose(); throw error; }
 
   document.querySelector('#loading').hidden = true;
   document.querySelector('#engine-status').textContent = 'WEBGL 2 · PHYSICS ON';
-  document.body.dataset.sceneReady = 'true';
-  document.body.dataset.physicsReady = 'true';
-  document.body.dataset.trackColliders = String(track.staticBodyCount);
-
+  document.body.dataset.sceneReady = 'true'; document.body.dataset.physicsReady = 'true';
   const fpsCounter = document.querySelector('#fps-counter');
-  let previousTime = null;
-  let sampleStart = null;
-  let frames = 0;
-  let contextLost = false;
-  const events = new AbortController();
-  const options = { signal: events.signal };
-
+  let previousTime = null, sampleStart = null, frames = 0, contextLost = false;
   function frame(time) {
-    // Rendering is variable-rate; the world advances in fixed 1/60-second steps.
-    const delta = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, 0.1);
-    previousTime = time;
-    sampleStart ??= time;
-    race.update(delta);
-    raceUI.update(time);
-    if (race.state === 'racing') app.rig.updateDirector(race.getFocusCar(), delta);
+    const delta = previousTime === null ? 0 : Math.min((time - previousTime) / 1000, .1);
+    previousTime = time; sampleStart ??= time;
+    game.update(delta); raceUI.update(time);
+    if (game.state === 'racing') app.rig.updateDirector(game.getFocusCar(), delta);
     app.rig.controls.update(delta);
     app.renderer.render(app.scene, app.rig.camera);
-    carLabels.update(race.state === 'lobby' ? grid.getLabelTargets() : simulation.cars,
-      race.getSnapshot().standings, app.rig.camera, track.group.visible);
+    labels.update(game.state === 'lobby' ? game.world.grid.getLabelTargets() : game.world.simulation.cars,
+      game.getSnapshot().standings, app.rig.camera, worldMode === 'track' && document.body.dataset.appScreen === 'race');
     frames++;
-    if (time - sampleStart >= 1000) {
-      fpsCounter.textContent = `${Math.round(frames * 1000 / (time - sampleStart))} FPS`;
-      sampleStart = time;
-      frames = 0;
-    }
+    if (time - sampleStart >= 1000) { fpsCounter.textContent = `${Math.round(frames * 1000 / (time - sampleStart))} FPS`; sampleStart = time; frames = 0; }
   }
-
   function syncAnimation() {
-    previousTime = null;
-    sampleStart = null;
-    frames = 0;
-    physics.resetAccumulator();
+    previousTime = null; sampleStart = null; frames = 0; game.world.physics.resetAccumulator();
     const paused = document.hidden || contextLost;
+    // Online physics continues on the server while this tab is hidden. New
+    // snapshots replace stale poses when rendering resumes; no local catch-up.
     app.renderer.setAnimationLoop(paused ? null : frame);
     if (paused) fpsCounter.textContent = 'PAUSED';
   }
-
   document.addEventListener('visibilitychange', syncAnimation, options);
-  app.renderer.domElement.addEventListener('webglcontextlost', (event) => {
-    event.preventDefault();
-    contextLost = true;
-    document.querySelector('#engine-status').textContent = 'RESTORING WEBGL';
-    syncAnimation();
-  }, options);
-  app.renderer.domElement.addEventListener('webglcontextrestored', () => {
-    contextLost = false;
-    document.querySelector('#engine-status').textContent = 'WEBGL 2 · PHYSICS ON';
-    syncAnimation();
-  }, options);
-
-  // The bfcache retains a live page; do not destroy its renderer when navigating back.
-  window.addEventListener('pagehide', (event) => {
-    if (event.persisted) return;
-    events.abort();
-    controlsUI.dispose();
-    lobbyUI.dispose();
-    raceUI.dispose();
-    leaderboardUI.dispose();
-    carLabels.dispose();
-    hudUI.dispose();
-    race.dispose();
-    simulation.dispose();
-    unsubscribeGrid();
-    grid.dispose();
-    track.dispose();
-    physics.dispose();
-    app.dispose();
-  }, options);
-
-  syncAnimation();
+  app.renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); contextLost = true; syncAnimation(); }, options);
+  app.renderer.domElement.addEventListener('webglcontextrestored', () => { contextLost = false; syncAnimation(); }, options);
+  window.addEventListener('pagehide', event => { if (!event.persisted) dispose(); }, options);
+  syncAnimation(); flow.ready();
 }

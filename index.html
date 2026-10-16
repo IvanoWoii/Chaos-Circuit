@@ -9,19 +9,21 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./hud.css" />
+    <link rel="stylesheet" href="./menus.css" />
     <!-- Pin dependencies so later releases cannot silently change the prototype. -->
     <script type="importmap">
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
           "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
-          "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+          "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js",
+          "socket.io-client": "https://cdn.socket.io/4.8.3/socket.io.esm.min.js"
         }
       }
     </script>
     <script src="./js/boot.js" defer></script>
   </head>
-  <body class="race-app">
+  <body class="race-app" data-app-screen="splash">
     <a class="skip-link" href="#hud-driver" id="driver-skip">Skip to driver setup</a>
     <main id="main" class="race-stage" aria-label="Chaos Circuit racing game">
       <div id="viewport" class="viewport" aria-label="3D race circuit. Drag to orbit and scroll or pinch to zoom.">
@@ -35,6 +37,7 @@
         <div class="simulation-metrics"><div><strong id="simulation-time">00:00</strong><span>ELAPSED</span></div><div><strong id="simulation-bumps">00</strong><span>BUMPS</span></div><div><strong id="simulation-rescues">00</strong><span>RECOVERIES</span></div><div><strong id="simulation-speed">0 m/s</strong><span>FASTEST</span></div></div>
       </section>
       <nav class="hud-nav" aria-label="Race panels">
+        <button type="button" id="menu-return" aria-label="Leave this race and return to the menu">Menu</button>
         <button type="button" data-hud-toggle="driver" aria-controls="hud-driver" aria-expanded="false">Driver</button>
         <button type="button" data-hud-toggle="racers" aria-controls="hud-racers" aria-expanded="false">Racers</button>
         <button type="button" data-hud-toggle="scores" aria-controls="hud-scores" aria-expanded="false">Scores</button>
@@ -118,6 +121,50 @@
       <footer class="hud-engine"><span id="engine-status">ENGINE LOADING</span><span id="fps-counter">— FPS</span></footer>
     </main>
     <p class="sr-only" id="paint-announcement" aria-live="polite"></p>
+    <div id="network-banner" role="status" hidden></div>
+    <div id="app-screen" class="app-screen">
+      <section class="app-view splash-view" data-app-view="splash" aria-label="Loading Chaos Circuit">
+        <div class="menu-logo">CHAOS<span>CIRCUIT</span><small>ZERO DRIVERS. MAXIMUM CHAOS.</small></div>
+        <div class="splash-road" aria-hidden="true"><i class="splash-car"></i><i class="splash-car rival"></i><i class="splash-spinner"></i></div>
+        <p id="splash-status" role="status">Warming up the questionable decisions…</p>
+      </section>
+      <section class="app-view menu-view" data-app-view="menu" hidden aria-labelledby="menu-title">
+        <div class="menu-logo" id="menu-title">CHAOS<span>CIRCUIT</span><small>ZERO-PLAYER RACING CLUB · V1.5</small></div>
+        <p class="menu-subtitle">Pick your paint. Pick your people.<br />Let the physics make the decisions.</p>
+        <label class="menu-name-label" for="menu-name">YOUR DRIVER NAME</label><input id="menu-name" maxlength="24" autocomplete="nickname" placeholder="Captain Curb" value="The Rookie" />
+        <div class="menu-actions">
+          <button type="button" id="menu-customize"><span>01</span><strong>Customize Car</strong><small>Color & racing style</small><b>↗</b></button>
+          <button type="button" id="menu-solo"><span>02</span><strong>Race with AI</strong><small>A new circuit. Eight troublemakers.</small><b>↗</b></button>
+          <button type="button" id="menu-friends"><span>03</span><strong>Race with Friend</strong><small>Create a room or join the chaos</small><b>↗</b></button>
+        </div>
+        <p class="menu-message" id="menu-message" role="status">Your preferences and scores stay on this device.</p>
+      </section>
+      <section class="app-view menu-card" data-app-view="customize" hidden aria-labelledby="customize-title">
+        <button class="menu-back" type="button" data-back-menu>← Main menu</button><span class="eyebrow">YOUR NEXT TROUBLEMAKER</span><h1 id="customize-title">Make it yours.</h1>
+        <form id="customize-form"><label class="menu-name-label" for="menu-color">CAR COLOR</label><input id="menu-color" type="color" value="#fb673e" />
+          <fieldset class="menu-styles"><legend>RACING STYLE</legend>
+            <label><input type="radio" name="menu-style" value="balanced" checked /><strong>All-rounder</strong><small>18 m/s · 150 kg</small></label>
+            <label><input type="radio" name="menu-style" value="speedster" /><strong>Speedster</strong><small>23 m/s · 90 kg</small></label>
+            <label><input type="radio" name="menu-style" value="bruiser" /><strong>Bruiser</strong><small>14 m/s · 240 kg</small></label>
+          </fieldset><button class="primary-button" type="submit">Save car ↗</button>
+        </form><p id="customize-message" class="menu-message" role="status">Only paint and racing style. The rest is up to your driver.</p>
+      </section>
+      <section class="app-view menu-card room-browser" data-app-view="friends" hidden aria-labelledby="friends-title">
+        <button class="menu-back" type="button" data-back-menu>← Main menu</button><span class="eyebrow">BETTER WITH WITNESSES</span><h1 id="friends-title">Race with friends.</h1>
+        <p id="connection-status" class="menu-message" role="status">Connecting to the room service…</p>
+        <label class="menu-name-label" for="room-driver-name">YOUR DRIVER NAME</label><input id="room-driver-name" maxlength="24" autocomplete="nickname" />
+        <div class="room-choices"><section><h2>Create Room</h2><label for="create-limit">Racer limit (players + AI)</label><select id="create-limit"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select><button type="button" id="create-room" class="primary-button">Create Room ↗</button></section>
+          <form id="join-room-form"><h2>Join Room</h2><label for="join-code">Room code</label><input id="join-code" maxlength="6" minlength="6" pattern="[A-Fa-f0-9]{6}" placeholder="A1B2C3" required autocapitalize="characters" /><button type="submit" class="primary-button">Join Room ↗</button></form></div>
+        <div class="room-list-heading"><h2>Active rooms</h2><button type="button" id="refresh-rooms" class="secondary-button">Refresh</button></div><ul id="room-list" class="room-list"></ul><p id="rooms-empty" class="menu-message">No rooms yet. Create one to get started.</p><p id="room-browser-error" class="menu-message" role="status"></p>
+      </section>
+      <section class="app-view menu-card" data-app-view="room" hidden aria-labelledby="room-title">
+        <button class="menu-back" type="button" id="leave-room">← Leave room</button><span class="eyebrow">SHARE THE CODE. SHARE THE CHAOS.</span><h1 id="room-title">The paddock.</h1>
+        <div class="room-code"><strong id="room-code">------</strong><button id="copy-room-code" class="secondary-button" type="button">Copy code</button></div>
+        <p id="room-role" class="menu-message"></p><label class="menu-name-label" for="room-limit">RACER LIMIT (PLAYERS + AI)</label><select id="room-limit"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+        <ul id="room-players" class="room-list"></ul><div class="room-actions"><button type="button" id="add-room-ai" class="secondary-button">+ Add AI racer</button><button type="button" id="start-room-race" class="primary-button">START RACE ↗</button></div>
+        <p class="menu-message">AI racers are added manually. Each race rolls a different circuit and fresh obstacles.</p><p id="room-error" class="menu-message" role="status"></p>
+      </section>
+    </div>
     <dialog id="race-results" class="results-dialog" aria-labelledby="results-title" aria-describedby="results-subtitle">
       <span class="eyebrow">THE CHECKERED FLAG</span>
       <h2 id="results-title">We have a winner.</h2>

@@ -1,16 +1,27 @@
 {
   "name": "chaos-circuit",
-  "version": "1.5.0-step1",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
-  "description": "A zero-player WebGL racing prototype, built in four incremental steps.",
+  "description": "Browser auto-racing with randomized circuits and authoritative Socket.IO rooms.",
   "scripts": {
-    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test:deployment": "node scripts/test-deployment.mjs",
+    "start": "node server/index.js",
     "check": "node --experimental-vm-modules scripts/check.mjs",
     "test": "node --experimental-vm-modules scripts/test.mjs",
     "test:step3": "node --experimental-vm-modules scripts/test-step3.mjs",
     "test:step4": "node --experimental-vm-modules scripts/test-step4.mjs",
     "test:racing-ai": "node --experimental-vm-modules scripts/test-racing-ai.mjs",
-    "test:hud": "node --experimental-vm-modules scripts/test-hud.mjs"
+    "test:hud": "node --experimental-vm-modules scripts/test-hud.mjs",
+    "start:solo": "node scripts/serve.mjs",
+    "test:v15": "node scripts/test-v15.mjs",
+    "test:app-flow": "node scripts/test-app-flow.mjs"
+  },
+  "dependencies": {
+    "socket.io": "4.8.3",
+    "socket.io-client": "4.8.3",
+    "three": "0.170.0",
+    "cannon-es": "0.20.0"
   }
 }

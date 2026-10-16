@@ -1,11 +1,12 @@
 import { GAME_CONFIG } from '../config.js';
-import { TRACK, TRACK_LENGTH, getTrackPoint, isOnRoad, projectTrackDistance } from '../world/track-layout.js';
+import { defaultLayout } from '../world/track-layout.js';
 
-const signedDistance = (value) => ((value + TRACK_LENGTH * 1.5) % TRACK_LENGTH) - TRACK_LENGTH / 2;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 /** Race authority: ordered physical gate crossings, independent of steering waypoints. */
-export function createRaceProgress(entries, { laps = GAME_CONFIG.laps, checkpoints = GAME_CONFIG.race.checkpoints } = {}) {
+export function createRaceProgress(entries, { laps = GAME_CONFIG.laps, checkpoints = GAME_CONFIG.race.checkpoints, layout = defaultLayout } = {}) {
+  const { TRACK, TRACK_LENGTH, getTrackPoint, isOnRoad, projectTrackDistance } = layout;
+  const signedDistance = (value) => ((value + TRACK_LENGTH * 1.5) % TRACK_LENGTH) - TRACK_LENGTH / 2;
   const spacing = TRACK_LENGTH / checkpoints;
   const records = new Map(entries.map((entry, index) => [entry.id, {
     entry: { ...entry }, gridIndex: index, nextGate: 0, started: false,

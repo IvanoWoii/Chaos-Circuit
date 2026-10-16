@@ -12,8 +12,8 @@ export const GAME_CONFIG = Object.freeze({
     overhead: [0, 24, 0.01],
   }),
   trackCamera: Object.freeze({
-    viewSize: 56,
-    minHalfWidth: 39,
+    viewSize: 64,
+    minHalfWidth: 46,
     target: [0, 0, 0],
     isometric: [34, 42, 52],
     overhead: [0, 65, 0.01],

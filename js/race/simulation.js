@@ -2,16 +2,19 @@ import * as THREE from 'three';
 import { createCar } from './car.js';
 import { createDriverAI } from './ai.js';
 import { createRandom } from '../utils/random.js';
-import { getGridSlot } from '../world/track-layout.js';
+import { defaultLayout } from '../world/track-layout.js';
 import { createObstacles } from '../world/obstacles.js';
-import { senseCar } from './tactics.js';
+import { createDrivingTactics } from './tactics.js';
+import { createRandomObstacles } from '../world/random-obstacles.js';
 
 /** Physical driving sandbox; the race controller adds countdown and scoring. */
-export function createSimulation(parent, physics, { hazards = true } = {}) {
+export function createSimulation(parent, physics, { hazards = true, layout = defaultLayout, map = null } = {}) {
+  const { getGridSlot } = layout;
+  const { senseCar } = createDrivingTactics(layout);
   const group = new THREE.Group();
   group.name = 'practice-simulation';
   parent.add(group);
-  const obstacles = hazards ? createObstacles(group, physics) : null;
+  const obstacles = hazards ? (map ? createRandomObstacles(group,physics,layout,map.obstacles) : createObstacles(group, physics)) : null;
   let cars = [], drivers = [];
   let state = 'ready';
   let elapsed = 0, bumps = 0;
@@ -61,7 +64,7 @@ export function createSimulation(parent, physics, { hazards = true } = {}) {
         entries.forEach((entry, index) => {
           const car = createCar(entry, getGridSlot(index), physics, group, onImpact);
           cars.push(car); byBody.set(car.body.id, car);
-          drivers.push(createDriverAI(car, index, random));
+          drivers.push(createDriverAI(car, index, random, layout));
         });
       } catch (error) { clearCars(); throw error; }
       state = 'running';
@@ -109,5 +112,12 @@ export function createSimulation(parent, physics, { hazards = true } = {}) {
       obstacles?.sync(alpha);
     },
     dispose() { clearCars(); obstacles?.dispose(); listeners.clear(); stepListeners.clear(); group.removeFromParent(); },
+    capture() { return { cars: cars.map(c=>({id:c.entry.id,p:c.body.position.toArray(),q:c.body.quaternion.toArray(),v:c.body.velocity.toArray(),revision:c.poseRevision,flash:c.recoveryFlash})), obstacles: obstacles?.capture?.() || [] }; },
+    renderNetwork(a,b,t) {
+      cars.forEach((car,i)=>{const next=b.cars[i];if(!next)return;const previous=a.cars[i]||next;const blend=previous.revision===next.revision?t:1;
+        car.body.previousPosition.set(...previous.p);car.body.position.set(...next.p);car.body.previousQuaternion.set(...previous.q);car.body.quaternion.set(...next.q);car.body.velocity.set(...next.v);car.recoveryFlash=next.flash;car.sync(blend);
+      });
+      obstacles?.applyNetwork?.(a.obstacles,b.obstacles,t);
+    },
   };
 }

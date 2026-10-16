@@ -1,5 +1,7 @@
+/** Each race owns its layout; simultaneous online rooms never share mutable geometry. */
+export function createTrackLayout(overrides = {}) {
 /** Engine-independent circuit data, shared by rendering, colliders and later AI. */
-export const TRACK = Object.freeze({
+const TRACK = Object.freeze({
   straightHalf: 14,
   radius: 12,
   width: 8,
@@ -7,14 +9,14 @@ export const TRACK = Object.freeze({
   wallHeight: 1.4,
   wallThickness: 0.55,
   arcSegments: 32,
-  startX: 8,
+  startX: 8, ...overrides,
 });
 
-export const TRACK_LENGTH = 4 * TRACK.straightHalf + 2 * Math.PI * TRACK.radius;
+const TRACK_LENGTH = 4 * TRACK.straightHalf + 2 * Math.PI * TRACK.radius;
 const wrap = (value, length) => ((value % length) + length) % length;
 
 /** Distance zero is the finish line. Local +Z on a car points along heading. */
-export function getTrackPoint(distance, laneOffset = 0) {
+function getTrackPoint(distance, laneOffset = 0) {
   const { straightHalf: half, radius } = TRACK;
   let along = wrap(distance + half + TRACK.startX, TRACK_LENGTH);
   let x, z, tx, tz;
@@ -36,23 +38,23 @@ export function getTrackPoint(distance, laneOffset = 0) {
   return { x: x - tz * laneOffset, y: TRACK.surfaceY, z: z + tx * laneOffset, heading: Math.atan2(tx, tz) };
 }
 
-export function getGridSlot(index) {
+function getGridSlot(index) {
   if (!Number.isInteger(index) || index < 0 || index >= 8) throw new RangeError('Grid slot must be between 0 and 7.');
   return getTrackPoint(-4 - Math.floor(index / 2) * 4.3, index % 2 === 0 ? -1.85 : 1.85);
 }
 
-export function isOnRoad(x, z, margin = 0) {
+function isOnRoad(x, z, margin = 0) {
   const dx = Math.max(Math.abs(x) - TRACK.straightHalf, 0);
   const distance = Math.hypot(dx, z);
   return distance >= TRACK.radius - TRACK.width / 2 + margin && distance <= TRACK.radius + TRACK.width / 2 - margin;
 }
 
-export function createWaypoints(count = 40) {
+function createWaypoints(count = 40) {
   return Array.from({ length: count }, (_, index) => getTrackPoint(index / count * TRACK_LENGTH));
 }
 
 /** Closest road distance for AI sensing and interpolation, never checkpoint credit. */
-export function projectTrackDistance(x, z) {
+function projectTrackDistance(x, z) {
   const { straightHalf: half, radius, startX } = TRACK;
   let raw;
   if (x > half) raw = 2 * half + (Math.PI / 2 - Math.atan2(z, x - half)) * radius;
@@ -62,7 +64,7 @@ export function projectTrackDistance(x, z) {
 }
 
 /** Every visible barrier uses this same descriptor for its Cannon Box collider. */
-export function getWallSegments() {
+function getWallSegments() {
   const segments = [];
   const { straightHalf: half, wallThickness: thickness, wallHeight: height, arcSegments } = TRACK;
   const add = (x, z, length, yaw, boundary) => segments.push({
@@ -88,3 +90,8 @@ export function getWallSegments() {
   }
   return segments;
 }
+
+return { TRACK, TRACK_LENGTH, getTrackPoint, getGridSlot, isOnRoad, createWaypoints, projectTrackDistance, getWallSegments };
+}
+export const defaultLayout = createTrackLayout();
+export const { TRACK, TRACK_LENGTH, getTrackPoint, getGridSlot, isOnRoad, createWaypoints, projectTrackDistance, getWallSegments } = defaultLayout;

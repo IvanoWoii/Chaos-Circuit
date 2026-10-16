@@ -33,12 +33,15 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
 
       const ramp = body({
         mass: 0,
+        type: CANNON.Body.STATIC,
         position: new CANNON.Vec3(point.x, centerY, point.z),
         shape: new CANNON.Box(new CANNON.Vec3(rampWidth / 2, 0.15, rampLength / 2)),
       });
       ramp.obstacleKind = 'ramp';
       ramp.quaternion.copy(rampQ);
       ramp.previousQuaternion.copy(rampQ);
+      ramp.velocity.setZero();
+      ramp.angularVelocity.setZero();
       ramp.updateAABB();
 
       const visual = new THREE.Group();
@@ -63,7 +66,7 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
         visual.add(curb);
       }
 
-      moving.push({ body: ramp, node: visual });
+      moving.push({ body: ramp, node: visual, isStatic: true });
       sensors.push(() => [
         { kind: 'ramp', x: point.x, z: point.z, distance: spec.distance, width: rampWidth, length: rampLength }
       ]);
@@ -96,6 +99,7 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
   const initial=bodies.map(item=>({p:item.position.clone(),q:item.quaternion.clone()}));
   function sync(alpha=1) {
     for (const item of moving) {
+      if (item.isStatic) continue;
       const b=item.body;
       item.node.position.set(b.previousPosition.x+(b.position.x-b.previousPosition.x)*alpha,b.previousPosition.y+(b.position.y-b.previousPosition.y)*alpha,b.previousPosition.z+(b.position.z-b.previousPosition.z)*alpha);
       item.node.quaternion.set(b.previousQuaternion.x,b.previousQuaternion.y,b.previousQuaternion.z,b.previousQuaternion.w);
@@ -107,7 +111,7 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
   reset();
   return {group,sync,reset,getHazards:()=>sensors.flatMap(read=>read()),step:(dt,time)=>drives.forEach(drive=>drive(time)),
     capture:()=>moving.map(({body:b})=>({p:b.position.toArray(),q:b.quaternion.toArray()})),
-    applyNetwork(a,b,t){ moving.forEach((item,i)=>{if(!b[i])return;const prev=a[i]||b[i]; item.body.previousPosition.set(...prev.p);item.body.position.set(...b[i].p);item.body.previousQuaternion.set(...prev.q);item.body.quaternion.set(...b[i].q);});sync(t); },
+    applyNetwork(a,b,t){ moving.forEach((item,i)=>{if(!b[i]||item.isStatic)return;const prev=a[i]||b[i]; item.body.previousPosition.set(...prev.p);item.body.position.set(...b[i].p);item.body.previousQuaternion.set(...prev.q);item.body.quaternion.set(...b[i].q);});sync(t); },
     dispose(){constraints.forEach(c=>physics.world.removeConstraint(c));bodies.forEach(b=>physics.world.removeBody(b));const geometries=new Set();group.traverse(n=>{if(n.geometry)geometries.add(n.geometry);});geometries.forEach(g=>g.dispose());[paint,yellow,dark].forEach(m=>m.dispose());group.removeFromParent();},
   };
 }

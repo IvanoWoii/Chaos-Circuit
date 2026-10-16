@@ -1,8 +1,51 @@
 # Public multiplayer: Vercel + a Node backend
 
-Players open one public Vercel URL. Their browsers connect over HTTPS/WebSocket to a shared multiplayer backend. They can be on different networks; the developer's computer does not need to remain online.
+Players open one public Vercel URL. Their browsers connect over HTTPS/WebSocket to a shared multiplayer backend. They can be on different networks. The backend can run on a cloud service, or on your own computer through a secure public tunnel.
 
 The repository is prepared for this deployment, but no hosting service has been created or published from this workspace.
+
+## Simpler option: keep the backend on your computer
+
+This is a good fit for private play sessions. Use a tunnel with a stable HTTPS address so Vercel always knows where to reach the server. An ngrok account includes an assigned development domain; copy the exact domain shown in the ngrok dashboard.
+
+Install ngrok and add the account token once, following the [ngrok setup guide](https://ngrok.com/use-cases/share-localhost). Then use two PowerShell windows.
+
+In the first window, start the game server and allow your exact Vercel production origin:
+
+```powershell
+$env:ALLOWED_ORIGINS = 'https://your-game.vercel.app'
+npm.cmd start
+```
+
+In the second window, forward the server through your assigned ngrok domain:
+
+```powershell
+ngrok http 3000 --url https://your-assigned-domain.ngrok.app
+```
+
+Use the actual assigned hostname from your ngrok account; its suffix may differ from the example. Test `https://your-assigned-domain.ngrok.app/health` and confirm it returns `{"ok":true,"version":"1.5.0"}`.
+
+In Vercel, set the Production environment variable to that same origin and redeploy:
+
+```text
+MULTIPLAYER_URL=https://your-assigned-domain.ngrok.app
+```
+
+Environment-variable changes affect only new Vercel deployments, so the redeploy is required. A stable tunnel hostname means this is a one-time Vercel setting.
+
+During every multiplayer session, your computer must stay awake and connected, and both `npm start` and ngrok must remain running. If either process stops, connected players lose the room; automatic Socket.IO reconnection resumes only if the same server process and tunnel return before the reserved seat expires. The backend remains authoritative, so its upload speed and distance from players affect latency. Rooms also disappear if the Node process restarts.
+
+Do not forward port 3000 directly through the router. The tunnel supplies HTTPS and WebSocket forwarding without exposing your home IP or opening an inbound firewall port. The server accepts browser connections only from the exact origins in `ALLOWED_ORIGINS`, although that origin check is not an account or login system.
+
+For a quick test without an account, Cloudflare offers [temporary Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/):
+
+```powershell
+cloudflared tunnel --url http://localhost:3000
+```
+
+Quick Tunnel hostnames change whenever the tunnel restarts and have no uptime guarantee. Each new hostname must be copied into Vercel's `MULTIPLAYER_URL` followed by a redeploy, so use this only for testing. A named Cloudflare Tunnel gives a stable hostname but requires a domain configured on Cloudflare.
+
+If you want the game available while your PC is off, continue with the hosted backend instructions below.
 
 ## 1. Put the project in a Git repository
 

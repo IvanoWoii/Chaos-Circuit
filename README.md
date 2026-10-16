@@ -2,7 +2,7 @@
 
 A browser-based, zero-player racing game. Choose your car, enter a race, and watch AI drivers overtake, collide, tumble and recover. V1.5 includes the full-screen HUD, splash and main menu, car customization, randomized circuits and obstacles, and real multiplayer rooms.
 
-**Public hosting:** the frontend is prepared for **Vercel**, with a separately hosted Node/Socket.IO backend. Friends share the public Vercel URL and can play from different networks. See [DEPLOYMENT.md](DEPLOYMENT.md) for the exact settings and deployment order.
+**Public hosting:** the frontend is prepared for **Vercel**, with a Node/Socket.IO backend hosted either on a persistent service or on your computer through a secure HTTPS tunnel. Friends share the public Vercel URL and can play from different networks. See [DEPLOYMENT.md](DEPLOYMENT.md) for the exact settings and deployment order.
 
 ## Start the complete game
 

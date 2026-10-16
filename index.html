@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#edf1e8" />
+    <meta name="description" content="Pick your ride. Trust the AI. Enjoy the wreckage. A browser-based zero-player racing game, built one step at a time." />
+    <title>Chaos Circuit — Zero drivers. Maximum chaos.</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./hud.css" />
+    <!-- Pin dependencies so later releases cannot silently change the prototype. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+          "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+      }
+    </script>
+    <script src="./js/boot.js" defer></script>
+  </head>
+  <body class="race-app">
+    <a class="skip-link" href="#hud-driver" id="driver-skip">Skip to driver setup</a>
+    <main id="main" class="race-stage" aria-label="Chaos Circuit racing game">
+      <div id="viewport" class="viewport" aria-label="3D race circuit. Drag to orbit and scroll or pinch to zoom.">
+        <div id="loading" class="scene-message" role="status"><span class="loader" aria-hidden="true"></span><strong>Opening the paddock…</strong><span>Loading the circuit and physics world</span></div>
+        <div id="scene-error" class="scene-message error-message" role="alert" hidden><strong>The circuit couldn’t open.</strong><p id="error-detail"></p><button type="button" id="reload-button">Try again ↗</button></div>
+        <div id="race-countdown" class="countdown-overlay" role="status" aria-live="assertive" hidden><span id="countdown-caption">HANDS OFF THE WHEEL</span><strong id="countdown-value">3</strong></div>
+      </div>
+      <header class="hud-brand"><a class="brand" href="./" aria-label="Chaos Circuit home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>CHAOS<span class="brand-light">CIRCUIT</span><small>ZERO-PLAYER RACING CLUB</small></span></a><span class="hud-version">V1.5 · HUD</span></header>
+      <section class="simulation-card hud-telemetry" aria-label="Live race statistics">
+        <div class="race-badges"><span id="race-lap" class="lap-badge">LAP 1 / 3</span><span id="simulation-state" class="simulation-state" role="status">GRID OPEN</span></div>
+        <div class="simulation-metrics"><div><strong id="simulation-time">00:00</strong><span>ELAPSED</span></div><div><strong id="simulation-bumps">00</strong><span>BUMPS</span></div><div><strong id="simulation-rescues">00</strong><span>RECOVERIES</span></div><div><strong id="simulation-speed">0 m/s</strong><span>FASTEST</span></div></div>
+      </section>
+      <nav class="hud-nav" aria-label="Race panels">
+        <button type="button" data-hud-toggle="driver" aria-controls="hud-driver" aria-expanded="false">Driver</button>
+        <button type="button" data-hud-toggle="racers" aria-controls="hud-racers" aria-expanded="false">Racers</button>
+        <button type="button" data-hud-toggle="scores" aria-controls="hud-scores" aria-expanded="false">Scores</button>
+        <button type="button" data-hud-toggle="camera" aria-controls="hud-camera" aria-expanded="false">Camera</button>
+      </nav>
+      <section id="hud-driver" class="hud-panel" data-hud-panel="driver" aria-labelledby="hud-driver-title" hidden>
+        <div class="hud-panel-heading"><h2 id="hud-driver-title">Your driver</h2><button type="button" data-hud-close aria-label="Close Your driver">×</button></div>
+        <div class="hud-panel-content"><form id="driver-form" class="garage-card" aria-labelledby="garage-title">
+          <div class="card-heading"><h2 id="garage-title">REGISTER YOUR TROUBLEMAKER</h2><span class="number-tag" id="profile-wins">0 WINS</span></div>
+          <fieldset id="driver-fields" class="driver-fields" disabled>
+          <label class="field-label" for="saved-driver">SAVED DRIVER</label>
+          <select id="saved-driver"><option value="">+ New driver</option></select>
+          <label class="field-label" for="driver-name">DRIVER NAME</label>
+          <input id="driver-name" name="driver-name" type="text" maxlength="24" placeholder="e.g. Captain Curb" required autocomplete="nickname" aria-describedby="name-hint" />
+          <p class="field-hint" id="name-hint">Up to 24 characters. Bad puns encouraged.</p>
+          <div class="car-identity"><span class="color-dot" id="car-color-dot"></span><div><h3 id="driver-preview-name">The Rookie</h3><p id="driver-preview-description">A little speed. A little muscle.</p></div></div>
+          <fieldset class="paint-picker" disabled id="paint-picker">
+            <legend>MAKE IT YOURS <span id="paint-name">Tangerine</span></legend>
+            <div class="swatches">
+              <button type="button" class="swatch" data-color="#fb673e" data-name="Tangerine" style="--swatch: #fb673e" aria-label="Tangerine paint" aria-pressed="true"></button>
+              <button type="button" class="swatch" data-color="#f5ca53" data-name="Sunshine" style="--swatch: #f5ca53" aria-label="Sunshine paint" aria-pressed="false"></button>
+              <button type="button" class="swatch" data-color="#66b797" data-name="Mint condition" style="--swatch: #66b797" aria-label="Mint condition paint" aria-pressed="false"></button>
+              <button type="button" class="swatch" data-color="#648ed8" data-name="Blue streak" style="--swatch: #648ed8" aria-label="Blue streak paint" aria-pressed="false"></button>
+              <button type="button" class="swatch" data-color="#b092ca" data-name="Lilac lightning" style="--swatch: #b092ca" aria-label="Lilac lightning paint" aria-pressed="false"></button>
+              <button type="button" class="swatch" data-color="#e9e8dc" data-name="Vanilla chaos" style="--swatch: #e9e8dc" aria-label="Vanilla chaos paint" aria-pressed="false"></button>
+            </div>
+          </fieldset>
+          <div class="custom-paint"><label for="custom-color">Or mix your own</label><input type="color" id="custom-color" value="#fb673e" aria-label="Custom car color" /></div>
+          <fieldset class="style-picker">
+            <legend>RACING STYLE</legend>
+            <label class="style-option"><input type="radio" name="racing-style" value="balanced" checked /><span><strong>All-rounder</strong><small>18 m/s · 150 kg</small></span><span class="style-symbol" aria-hidden="true">◆</span></label>
+            <label class="style-option"><input type="radio" name="racing-style" value="speedster" /><span><strong>Speedster</strong><small>23 m/s · 90 kg</small></span><span class="style-symbol" aria-hidden="true">↗</span></label>
+            <label class="style-option"><input type="radio" name="racing-style" value="bruiser" /><span><strong>Bruiser</strong><small>14 m/s · 240 kg</small></span><span class="style-symbol" aria-hidden="true">▰</span></label>
+          </fieldset>
+          <div class="driver-actions"><button type="submit" id="join-button" class="primary-button">Join Race ↗</button><button type="button" id="save-driver" class="secondary-button">Save driver</button></div>
+          </fieldset>
+          <p id="lobby-lock-note" class="lobby-lock-note" hidden>The grid is locked. Reset Race to edit drivers.</p>
+          <p id="lobby-message" class="lobby-message" role="status" aria-live="polite">Choose your name, paint and racing style.</p>
+          <p id="storage-status" class="storage-status" role="status">Preferences save when you save or join.</p>
+          <p class="garage-note">Saved drivers stay on this device. The grid resets on refresh.</p>
+        </form></div>
+      </section>
+      <section id="hud-racers" class="hud-panel" data-hud-panel="racers" aria-labelledby="hud-racers-title" hidden>
+        <div class="hud-panel-heading"><h2 id="hud-racers-title">Race standings</h2><button type="button" data-hud-close aria-label="Close Race standings">×</button></div>
+        <div class="hud-panel-content"><section id="lobby-grid-card" class="grid-card" aria-labelledby="grid-title">
+        <div class="grid-heading"><div><span class="eyebrow">THE STARTING GRID</span><h2 id="grid-title">Eight cars. Zero sensible decisions.</h2></div><button type="button" id="clear-grid" class="text-button" disabled>Clear grid</button></div>
+        <p class="grid-summary" id="grid-summary">0 local drivers · 8 AI opponents</p>
+        <ol id="grid-list" class="grid-list" aria-label="Starting grid"></ol>
+        <div class="race-waiting"><span class="status-dot"></span><p><strong>A spinner. A wrecking ball. Questionable AI.</strong> Register your drivers, start the race and watch the trouble unfold.</p></div>
+      </section><section id="standings-card" class="grid-card" aria-labelledby="standings-title" hidden>
+        <div class="grid-heading"><div><span class="eyebrow">ON THE CIRCUIT</span><h2 id="standings-title">Every bumper for itself.</h2></div><span class="number-tag">LIVE</span></div>
+        <p id="standings-summary" class="grid-summary">0 / 8 finished</p>
+        <ol id="standings-list" class="standings-list" aria-label="Race standings"></ol>
+      </section></div>
+      </section>
+      <section id="hud-scores" class="hud-panel" data-hud-panel="scores" aria-labelledby="hud-scores-title" hidden>
+        <div class="hud-panel-heading"><h2 id="hud-scores-title">Local legends</h2><button type="button" data-hud-close aria-label="Close Local legends">×</button></div>
+        <div class="hud-panel-content"><section class="grid-card" aria-labelledby="leaderboard-title">
+        <div class="grid-heading"><div><span class="eyebrow">LOCAL LEGENDS</span><h2 id="leaderboard-title">The bragging rights board.</h2></div><span class="number-tag">★</span></div>
+        <p class="grid-summary">Saved on this device. AI rivals don’t keep trophies.</p>
+        <div class="score-header" aria-hidden="true"><span>DRIVER</span><span>WINS</span><span>RACES</span></div>
+        <p id="leaderboard-empty" class="practice-note">No local drivers yet. Save a driver to start their record.</p>
+        <ol id="leaderboard-list" class="leaderboard-list" aria-label="Saved local player leaderboard"></ol>
+      </section></div>
+      </section>
+      <section id="hud-camera" class="hud-panel" data-hud-panel="camera" aria-labelledby="hud-camera-title" hidden>
+        <div class="hud-panel-heading"><h2 id="hud-camera-title">Camera & view</h2><button type="button" data-hud-close aria-label="Close Camera & view">×</button></div>
+        <div class="hud-panel-content"><p class="hud-help">Drag the circuit to orbit. Scroll or pinch to zoom.</p><div class="camera-controls" role="group" aria-label="Camera controls">
+            <button type="button" data-view="isometric" aria-pressed="true" disabled>Isometric</button>
+            <button type="button" data-view="overhead" aria-pressed="false" disabled>Top view</button>
+            <button type="button" id="director-button" aria-pressed="true" disabled>Follow race</button>
+            <button type="button" id="rotate-button" aria-label="Rotate preview automatically" aria-pressed="false" disabled><span aria-hidden="true">↻</span></button>
+          </div><div class="world-tabs" role="group" aria-label="Scene"><button type="button" data-world="track" aria-pressed="true" disabled>Circuit</button><button type="button" data-world="garage" aria-pressed="false" disabled>Garage</button></div><p class="hud-help">Follow race tracks the leading unfinished car. Moving the camera takes manual control.</p></div>
+      </section>
+      <section class="hud-race-dock" aria-label="Race controls">
+        <p id="chaos-event" class="chaos-event" role="status" aria-live="polite">Join your driver through the Driver panel, or start with eight AI racers.</p>
+        <div class="simulation-actions"><button type="button" id="simulation-toggle" class="primary-button" disabled>START RACE ↗</button><button type="button" id="simulation-reset" class="secondary-button" disabled>Reset Race</button></div>
+        <p class="practice-note">3 laps · 40s after the winner · 3-minute limit</p>
+      </section>
+      <div class="hud-track-info"><span id="scene-label">ROOKIE RING</span><span id="scene-caption-copy">ROOKIE RING / 8 RACERS</span></div>
+      <footer class="hud-engine"><span id="engine-status">ENGINE LOADING</span><span id="fps-counter">— FPS</span></footer>
+    </main>
+    <p class="sr-only" id="paint-announcement" aria-live="polite"></p>
+    <dialog id="race-results" class="results-dialog" aria-labelledby="results-title" aria-describedby="results-subtitle">
+      <span class="eyebrow">THE CHECKERED FLAG</span>
+      <h2 id="results-title">We have a winner.</h2>
+      <p id="results-subtitle" class="results-subtitle"></p>
+      <ol id="podium-list" class="podium" aria-label="Race podium"></ol>
+      <div class="results-table-scroll"><table class="results-table"><caption class="sr-only">Full race classification</caption><thead><tr><th scope="col">PLACE</th><th scope="col">DRIVER</th><th scope="col">TYPE</th><th scope="col">TIME / LAPS</th></tr></thead><tbody id="results-rows"></tbody></table></div>
+      <p id="results-storage" class="practice-note"></p>
+      <button type="button" id="results-reset" class="primary-button" autofocus>Reset Race — Back to lobby ↗</button>
+      <p class="results-hint">Esc closes this view. Use View results to reopen it.</p>
+    </dialog>
+    <noscript><div class="noscript-message">Enable JavaScript to open the 3D race.</div></noscript>
+  </body>
+</html>

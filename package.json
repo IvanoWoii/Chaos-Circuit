@@ -1,0 +1,16 @@
+{
+  "name": "chaos-circuit",
+  "version": "1.5.0-step1",
+  "private": true,
+  "type": "module",
+  "description": "A zero-player WebGL racing prototype, built in four incremental steps.",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "check": "node --experimental-vm-modules scripts/check.mjs",
+    "test": "node --experimental-vm-modules scripts/test.mjs",
+    "test:step3": "node --experimental-vm-modules scripts/test-step3.mjs",
+    "test:step4": "node --experimental-vm-modules scripts/test-step4.mjs",
+    "test:racing-ai": "node --experimental-vm-modules scripts/test-racing-ai.mjs",
+    "test:hud": "node --experimental-vm-modules scripts/test-hud.mjs"
+  }
+}

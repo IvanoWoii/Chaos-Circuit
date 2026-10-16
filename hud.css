@@ -1,0 +1,101 @@
+/* V1.5: the canvas occupies the viewport; only open panels scroll internally. */
+html, body.race-app { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+.race-app { --hud-glass: #fffef5e8; --hud-edge: #fffef8c9; --hud-shadow: 0 8px 30px #263d3214; }
+.race-stage { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; isolation: isolate; }
+.race-stage > .viewport { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; }
+.hud-brand, .hud-telemetry, .hud-nav, .hud-panel, .hud-race-dock, .hud-track-info, .hud-engine { position: absolute; z-index: 5; }
+.hud-brand { top: max(20px, env(safe-area-inset-top)); left: max(22px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; }
+.hud-brand .brand { font-size: 25px; text-shadow: 0 1px 5px #fffef8; }
+.hud-brand .brand small { font-size: 7px; letter-spacing: 1.5px; }
+.hud-brand .brand-mark i { height: 29px; width: 6px; }
+.hud-version { font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.hud-telemetry { top: max(16px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right)); width: 386px; padding: 12px 16px; background: var(--hud-glass); border: 1px solid var(--hud-edge); box-shadow: var(--hud-shadow); border-radius: 12px; pointer-events: none; }
+.hud-telemetry .race-badges { flex-direction: row; align-items: center; justify-content: space-between; }
+.hud-telemetry .lap-badge { font-size: 19px; }
+.hud-telemetry .simulation-state { font-size: 7px; padding: 4px 6px; }
+.hud-telemetry .simulation-metrics { margin-top: 10px; gap: 10px; }
+.hud-telemetry .simulation-metrics > div { padding-left: 10px; gap: 4px; }
+.hud-telemetry .simulation-metrics > div:first-child { padding-left: 0; }
+.hud-telemetry .simulation-metrics strong { font-size: 24px; }
+.hud-telemetry .simulation-metrics span { font-size: 6px; letter-spacing: .8px; }
+.hud-nav { top: max(82px, calc(env(safe-area-inset-top) + 66px)); left: max(22px, env(safe-area-inset-left)); display: flex; gap: 4px; padding: 4px; background: var(--hud-glass); border: 1px solid var(--hud-edge); border-radius: 9px; box-shadow: var(--hud-shadow); }
+.hud-nav button { min-height: 36px; padding: 8px 14px; border: 0; background: transparent; border-radius: 6px; color: var(--ink); font-size: 11px; font-weight: 600; }
+.hud-nav button:hover { background: #e9eee0; }
+.hud-nav button[aria-expanded='true'] { color: var(--paper); background: var(--ink); }
+.hud-panel { top: max(138px, calc(env(safe-area-inset-top) + 122px)); left: max(22px, env(safe-area-inset-left)); width: 318px; max-width: calc(100% - 44px); max-height: calc(100% - max(138px, calc(env(safe-area-inset-top) + 122px)) - max(135px, calc(env(safe-area-inset-bottom) + 120px))); display: flex; flex-direction: column; background: var(--hud-glass); backdrop-filter: blur(12px); border: 1px solid var(--hud-edge); border-radius: 12px; box-shadow: var(--hud-shadow); overflow: hidden; }
+.hud-panel-heading { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 8px 12px 8px 18px; border-bottom: 1px solid var(--line); }
+.hud-panel-heading h2 { margin: 0; font: 700 24px/1 var(--display); }
+.hud-panel-heading button { width: 36px; height: 36px; border: 0; border-radius: 6px; background: #e6ebdd; color: var(--ink); font-size: 24px; }
+.hud-panel-content { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #a7b59b transparent; padding: 16px; }
+.hud-panel .garage-card, .hud-panel .grid-card { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.hud-panel .grid-heading h2 { font-size: 22px; }
+.hud-panel .grid-list { grid-template-columns: 1fr; }
+.hud-panel .grid-entry, .hud-panel .standing-row { padding-block: 10px; gap: 8px; }
+.hud-panel .grid-driver strong, .hud-panel .standing-row strong { font-size: 11px; }
+.hud-panel .grid-tag { display: inline; }
+.hud-panel .race-waiting { display: none; }
+.hud-panel .leaderboard-list { max-height: none; overflow: visible; }
+.hud-panel .score-header { grid-template-columns: 1fr 34px 34px; gap: 8px; }
+.hud-panel .score-row { grid-template-columns: 18px minmax(0, 1fr) 34px 34px; gap: 8px; }
+.hud-panel .swatches { justify-content: space-between; gap: 5px; }
+.hud-panel .swatch { width: 29px; height: 29px; }
+.hud-panel .driver-fields > input[type='text'], .hud-panel .driver-fields > select { font-size: 16px; }
+.hud-panel .camera-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hud-panel .camera-controls button { min-height: 42px; }
+.hud-panel .world-tabs { margin-top: 18px; }
+.hud-panel .world-tabs button { flex: 1; min-height: 38px; }
+.hud-help { font-size: 11px; line-height: 1.7; color: #60705f; }
+.hud-race-dock { bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); text-align: center; pointer-events: none; }
+.hud-race-dock .chaos-event { display: inline-block; max-width: 100%; min-height: 0; margin: 0 0 8px; padding: 6px 12px; border: 0; border-radius: 6px; background: #fffef6d9; color: var(--ink); font-size: 10px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.hud-race-dock .simulation-actions { margin: 0; gap: 8px; pointer-events: auto; }
+.hud-race-dock .simulation-actions button { min-height: 44px; box-shadow: var(--hud-shadow); }
+.hud-race-dock .primary-button { flex: 1; }
+.hud-race-dock .secondary-button { background: #fffef5ed; }
+.hud-race-dock .practice-note { margin-top: 7px; font-size: 8px; color: #4d624c; text-shadow: 0 1px 4px white; }
+.hud-track-info { bottom: 26px; left: 22px; display: flex; flex-direction: column; gap: 5px; font-size: 9px; letter-spacing: 1px; pointer-events: none; text-shadow: 0 1px 5px white; }
+.hud-track-info span:last-child { font-size: 7px; color: #60705f; }
+.hud-engine { bottom: 26px; right: 22px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 7px; letter-spacing: .6px; pointer-events: none; text-shadow: 0 1px 5px white; }
+.race-stage .scene-message { z-index: 10; }
+.race-stage .countdown-overlay { z-index: 4; }
+.race-app .skip-link { z-index: 20; }
+.race-app .results-dialog { max-height: calc(100dvh - 32px); overscroll-behavior: contain; }
+/* Labels have no card or badge backgrounds. Arrows remain directly over cars. */
+.car-label { height: 25px; padding: 0; justify-content: center; gap: 5px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #20372a; font-size: 11px; font-weight: 600; text-shadow: -1px -1px 0 #fffef5, 1px -1px 0 #fffef5, -1px 1px 0 #fffef5, 1px 1px 0 #fffef5, 0 1px 4px #fffef5; }
+.car-label[data-status] .car-label-rank { min-width: auto; background: transparent; color: #20372a; font-size: 10px; }
+.car-label-arrow { position: absolute; left: 0; top: 0; width: 16px; height: 16px; text-align: center; font: 16px/16px Arial, sans-serif; color: var(--car-paint); text-shadow: 0 1px 1px #20372a, -1px 0 1px #fffef5, 1px 0 1px #fffef5; }
+.car-label-connectors line { stroke-width: 1; stroke-opacity: .5; }
+@media (max-width: 900px) {
+  .hud-version, .hud-track-info, .hud-engine { display: none; }
+  .hud-telemetry { width: 340px; }
+}
+@media (max-width: 680px) {
+  .hud-brand { top: max(12px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); }
+  .hud-brand .brand { font-size: 23px; }
+  .hud-brand .brand small { display: none; }
+  .hud-brand .brand-mark i { height: 23px; }
+  .hud-telemetry { top: max(50px, calc(env(safe-area-inset-top) + 38px)); left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); width: auto; padding: 8px 12px; }
+  .hud-telemetry .lap-badge { font-size: 16px; }
+  .hud-telemetry .simulation-metrics { margin-top: 6px; }
+  .hud-telemetry .simulation-metrics strong { font-size: 21px; }
+  .hud-nav { top: auto; bottom: max(119px, calc(env(safe-area-inset-bottom) + 101px)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 24px); }
+  .hud-nav button { min-height: 36px; padding-inline: 12px; }
+  .hud-panel { top: max(146px, calc(env(safe-area-inset-top) + 134px)); left: max(12px, env(safe-area-inset-left)); width: min(310px, calc(100% - 24px)); max-width: calc(100% - 24px); max-height: calc(100% - max(146px, calc(env(safe-area-inset-top) + 134px)) - max(172px, calc(env(safe-area-inset-bottom) + 154px))); }
+  .hud-panel-heading { padding-block: 4px; }
+  .hud-panel-heading h2 { font-size: 21px; }
+  .hud-race-dock { bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+/* Short landscape displays keep controls in the corners and maximize panel height. */
+@media (max-height: 540px) and (min-width: 681px) {
+  .hud-brand { top: 12px; left: 14px; }
+  .hud-nav { top: 64px; left: 14px; }
+  .hud-panel { top: 116px; left: 14px; max-height: calc(100% - 132px); width: 290px; }
+  .hud-race-dock { left: auto; right: 14px; transform: none; width: 330px; bottom: 12px; }
+  .hud-track-info, .hud-engine { display: none; }
+}
+@media (max-height: 540px) and (max-width: 680px) {
+  .hud-brand { display: none; }
+  .hud-telemetry { top: max(8px, env(safe-area-inset-top)); }
+  .hud-panel { top: max(98px, calc(env(safe-area-inset-top) + 90px)); max-height: calc(100% - max(98px, calc(env(safe-area-inset-top) + 90px)) - max(156px, calc(env(safe-area-inset-bottom) + 138px))); }
+  .hud-nav { bottom: max(103px, calc(env(safe-area-inset-bottom) + 91px)); }
+  .hud-race-dock .practice-note { display: none; }
+}

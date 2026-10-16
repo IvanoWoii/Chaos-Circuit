@@ -62,7 +62,11 @@ html, body.race-app { width: 100%; height: 100%; overflow: hidden; overscroll-be
 /* Labels have no card or badge backgrounds. Arrows remain directly over cars. */
 .car-label { height: 25px; padding: 0; justify-content: center; gap: 5px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #20372a; font-size: 11px; font-weight: 600; text-shadow: -1px -1px 0 #fffef5, 1px -1px 0 #fffef5, -1px 1px 0 #fffef5, 1px 1px 0 #fffef5, 0 1px 4px #fffef5; }
 .car-label[data-status] .car-label-rank { min-width: auto; background: transparent; color: #20372a; font-size: 10px; }
+.car-label-you { display: inline-block; background: #f2643d; color: #fffef8; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px; letter-spacing: 0.5px; line-height: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.25); text-shadow: none; }
+.car-label[data-self='true'] { background: #20372af0; color: #fffef5; padding: 0 7px; border: 1.5px solid #efbd42; border-radius: 5px; box-shadow: 0 0 10px rgba(239, 189, 66, 0.7); text-shadow: none; }
+.car-label[data-self='true'][data-status] .car-label-rank { color: #efbd42; font-weight: 800; text-shadow: none; }
 .car-label-arrow { position: absolute; left: 0; top: 0; width: 16px; height: 16px; text-align: center; font: 16px/16px Arial, sans-serif; color: var(--car-paint); text-shadow: 0 1px 1px #20372a, -1px 0 1px #fffef5, 1px 0 1px #fffef5; }
+.car-label-arrow[data-self='true'] { filter: drop-shadow(0 0 4px #efbd42); }
 .car-label-connectors line { stroke-width: 1; stroke-opacity: .5; }
 @media (max-width: 900px) {
   .hud-version, .hud-track-info, .hud-engine { display: none; }

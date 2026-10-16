@@ -239,7 +239,11 @@ h1 span { color: var(--orange); }
 .car-label { position: absolute; left: 0; top: 0; height: 25px; display: flex; align-items: center; gap: 6px; padding: 3px 7px 3px 3px; border: 1px solid #dae2cf; border-bottom: 2px solid var(--car-paint); border-radius: 5px; background: #fffef6ed; box-shadow: 0 2px 5px #263d3220; white-space: nowrap; font-size: 9px; will-change: transform; }
 .car-label-rank { flex-shrink: 0; min-width: 23px; text-align: center; background: var(--ink); color: #fffef8; border-radius: 3px; font-size: 8px; font-weight: 700; line-height: 17px; font-variant-numeric: tabular-nums; }
 .car-label-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.car-label-you { display: inline-block; background: #f2643d; color: #fffef8; font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px; letter-spacing: 0.5px; line-height: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
 .car-label[data-local='true'] .car-label-name { font-weight: 700; }
+.car-label[data-self='true'] { border: 2px solid #efbd42; border-bottom: 3px solid var(--car-paint); box-shadow: 0 0 10px rgba(239, 189, 66, 0.7), 0 2px 5px #263d3220; background: #fffef8; }
+.car-label[data-self='true'] .car-label-name { font-weight: 800; color: #15251c; }
+.car-label-arrow[data-self='true'] { filter: drop-shadow(0 0 4px #efbd42); }
 .car-label[data-status='finished'] .car-label-rank { background: #648257; }
 .car-label[data-status='dnf'] .car-label-rank { background: #a96543; }
 .countdown-overlay { z-index: 3; }

@@ -4,12 +4,14 @@ import { chooseMap, describeMap } from '../world/maps.js';
 /** Stable UI facade while maps, local simulations and network races are replaced. */
 export function createRaceSession(scene,profiles,entries,{onMap=()=>{},onRemoteResults=()=>{}}={}) {
   const listeners=new Set();let world,unsubscribe,roster=entries,remote=false,host=false,connected=true;
-  let descriptor=null,remoteState=null,frames=[],lastSequence=-1,command=()=>{},previousMap=null,recorded=null;
+  let descriptor=null,remoteState=null,frames=[],lastSequence=-1,command=()=>{},previousMap=null,recorded=null,localPlayerId=null;
   function notify(){const snapshot=api.getSnapshot();listeners.forEach(listener=>listener(snapshot));}
   function replace(map){unsubscribe?.();world?.dispose();world=createRaceWorld(map,profiles,scene);world.grid.update(roster);previousMap=map.id;unsubscribe=world.race.subscribe(()=>{world.grid.group.visible=world.race.state==='lobby';notify();});onMap(map);}
   function issue(event){Promise.resolve(command(event)).catch(error=>{document.querySelector('#chaos-event').textContent=error.message;});}
   const api={
     get world(){return world;},get online(){return remote;},get canControl(){return !remote||(host&&connected);},
+    get localPlayerId(){return localPlayerId||profiles.getData().activeProfileId;},
+    setLocalPlayerId(id){localPlayerId=id;},
     get state(){return remote?remoteState?.state||'lobby':world.race.state;},
     getSnapshot(){return remoteState||world.race.getSnapshot();},
     getFocusCar(){const rows=api.getSnapshot().standings;const leader=rows.find(r=>!r.finished)||rows[0];return world.simulation.cars.find(car=>car.entry.id===leader?.id)||null;},
@@ -22,8 +24,8 @@ export function createRaceSession(scene,profiles,entries,{onMap=()=>{},onRemoteR
     pause(){if(remote){if(api.canControl)issue('race:pause');}else world.race.pause();},
     resume(){if(remote){if(api.canControl)issue('race:resume');}else world.race.resume();},
     reset(){if(remote){if(api.canControl)issue('race:reset');}else world.race.reset();},
-    solo(entries){remote=false;remoteState=null;descriptor=null;frames=[];roster=entries;world.race.reset();world.grid.update(roster);notify();},
-    setRoom(room,isHost,isConnected,send){remote=true;host=isHost;connected=isConnected;command=send;
+    solo(entries){remote=false;remoteState=null;descriptor=null;frames=[];roster=entries;localPlayerId=entries.find(e=>!e.isBot)?.id||profiles.getData().activeProfileId;world.race.reset();world.grid.update(roster);notify();},
+    setRoom(room,isHost,isConnected,send,localId){remote=true;host=isHost;connected=isConnected;command=send;if(localId)localPlayerId=localId;
       if(room.status==='lobby'){
         const wasRace=Boolean(descriptor);descriptor=null;remoteState=null;frames=[];roster=room.players;
         if(wasRace)replace(world.map);else {world.race.reset();world.simulation.reset();world.grid.update(roster);world.grid.group.visible=true;}

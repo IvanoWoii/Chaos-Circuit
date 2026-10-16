@@ -20,22 +20,52 @@ export function createRandomObstacles(parent, physics, layout, definitions) {
   }
   for (const spec of definitions) {
     const point = layout.getTrackPoint(spec.distance);
-    if (spec.kind === 'spinner') {
-      const anchor = body({ mass: 0, position: new CANNON.Vec3(point.x,0.5,point.z), shape: new CANNON.Box(new CANNON.Vec3(.3,.5,.3)) });
-      mesh(new THREE.BoxGeometry(.6,1,.6),dark,[point.x,.5,point.z]);
-      const bar = body({ mass: 260, angularDamping: .03, position: new CANNON.Vec3(point.x,1,point.z), shape: new CANNON.Box(new CANNON.Vec3(spec.size,.4,.45)) });
-      bar.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),spec.phase);
-      bar.previousQuaternion.copy(bar.quaternion); bar.updateAABB();
-      const hinge = new CANNON.HingeConstraint(anchor,bar,{ pivotA: new CANNON.Vec3(0,.5,0), pivotB: new CANNON.Vec3(), axisA: new CANNON.Vec3(0,1,0), axisB: new CANNON.Vec3(0,1,0), maxForce: 1e6 });
-      hinge.enableMotor(); hinge.setMotorSpeed(spec.speed); hinge.setMotorMaxForce(12000);
-      physics.world.addConstraint(hinge); constraints.push(hinge);
-      const visual = mesh(new THREE.BoxGeometry(spec.size*2,.8,.9),paint);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(.45,.84,.94),yellow); visual.add(stripe);
-      moving.push({ body: bar, node: visual });
+    if (spec.kind === 'ramp' || spec.kind === 'spinner') {
+      const rampWidth = Math.min(layout.TRACK.width * 0.85, Math.max(5.2, (spec.size || 2.5) * 2));
+      const rampLength = 5.0, lipHeight = 1.15;
+      const pitch = Math.atan2(lipHeight, rampLength);
+      const centerY = lipHeight / 2;
+      const qYaw = new CANNON.Quaternion();
+      qYaw.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), point.heading);
+      const qPitch = new CANNON.Quaternion();
+      qPitch.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -pitch);
+      const rampQ = qYaw.mult(qPitch);
+
+      const ramp = body({
+        mass: 0,
+        position: new CANNON.Vec3(point.x, centerY, point.z),
+        shape: new CANNON.Box(new CANNON.Vec3(rampWidth / 2, 0.15, rampLength / 2)),
+      });
+      ramp.obstacleKind = 'ramp';
+      ramp.quaternion.copy(rampQ);
+      ramp.previousQuaternion.copy(rampQ);
+      ramp.updateAABB();
+
+      const visual = new THREE.Group();
+      visual.position.set(point.x, centerY, point.z);
+      visual.quaternion.set(rampQ.x, rampQ.y, rampQ.z, rampQ.w);
+      group.add(visual);
+
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(rampWidth, 0.3, rampLength), paint);
+      deck.castShadow = true; deck.receiveShadow = true;
+      visual.add(deck);
+
+      for (const z of [-1.3, 0.1, 1.5]) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(rampWidth * 0.88, 0.32, 0.45), yellow);
+        stripe.position.set(0, 0, z);
+        stripe.castShadow = true;
+        visual.add(stripe);
+      }
+      for (const side of [-1, 1]) {
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.5, rampLength), dark);
+        curb.position.set(side * (rampWidth / 2 + 0.15), 0.12, 0);
+        curb.castShadow = true;
+        visual.add(curb);
+      }
+
+      moving.push({ body: ramp, node: visual });
       sensors.push(() => [
-        { kind:'post', x:point.x,z:point.z,distance:spec.distance,yaw:0,angularSpeed:0,halfLength:.3,halfWidth:.3 },
-        { kind:'spinner',x:bar.position.x,z:bar.position.z,distance:spec.distance,
-          yaw:Math.atan2(2*(bar.quaternion.w*bar.quaternion.y+bar.quaternion.x*bar.quaternion.z),1-2*(bar.quaternion.y**2+bar.quaternion.x**2)),angularSpeed:bar.angularVelocity.y,halfLength:spec.size,halfWidth:.45 },
+        { kind: 'ramp', x: point.x, z: point.z, distance: spec.distance, width: rampWidth, length: rampLength }
       ]);
     } else {
       const length = 5.05, radius = 1.05;

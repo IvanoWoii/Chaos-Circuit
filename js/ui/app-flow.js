@@ -38,7 +38,8 @@ export function bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview,
     finally { if (!disposed) { button.disabled = false; if (room) renderRoom(); } }
   }
   function renderRooms() {
-    $('#rooms-empty').hidden = roomList.length > 0;
+    const isOffline = client ? !client.connected : false;
+    $('#rooms-empty').hidden = roomList.length > 0 || isOffline;
     $('#room-list').replaceChildren(...roomList.map(item => {
       const li = document.createElement('li'), title = document.createElement('strong');
       title.textContent = `${item.name} · ${item.code}`;
@@ -76,7 +77,7 @@ export function bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview,
   function receiveRoom(next) {
     if (!onlineWanted) return;
     room = next;
-    game.setRoom(room, room.hostId === client?.id, Boolean(client?.connected), event => client.request(event));
+    game.setRoom(room, room.hostId === client?.id, Boolean(client?.connected), event => client.request(event), client?.id);
     renderRoom();
     if (room.status === 'lobby') show('room');
     else if (room.race) { game.beginRemote(room.race); controls.setWorld('track'); show('race'); }
@@ -94,9 +95,16 @@ export function bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview,
       },
       connection(connected, text) {
         message('#connection-status', text);
+        const isOffline = !connected;
+        $('#connection-status').dataset.offline = String(isOffline);
         const banner = $('#network-banner'); banner.hidden = connected || !onlineWanted || !room;
         banner.textContent = text; game.setConnection(connected);
-        if (room) { game.setRoom(room, room.hostId === client?.id, connected, event => client.request(event)); renderRoom(); }
+        if (isOffline) {
+          message('#room-browser-error', text);
+        } else if ($('#room-browser-error').textContent.includes('offline') || $('#room-browser-error').textContent.includes('terjangkau')) {
+          message('#room-browser-error', '');
+        }
+        if (room) { game.setRoom(room, room.hostId === client?.id, connected, event => client.request(event), client?.id); renderRoom(); }
         renderRooms();
       },
       rooms(items) { roomList = items; renderRooms(); },
@@ -153,10 +161,29 @@ export function bindAppFlow({ game, profiles, lobby, lobbyUI, controls, preview,
     const profile = saveIdentity(); onlineProfileId = profile.id; onlineWanted = true;
     $('#room-driver-name').value = profile.name; controls.setWorld('track'); show('friends');
     try { await ensureClient(); }
-    catch (error) { message('#connection-status', error.message || 'The room service could not load. Check your connection and try Refresh.'); }
+    catch (error) {
+      const offlineMsg = error.message || 'Service multiplayer lagi offline (server tidak terjangkau). Pastikan backend server aktif.';
+      message('#connection-status', offlineMsg);
+      $('#connection-status').dataset.offline = 'true';
+      message('#room-browser-error', offlineMsg);
+    }
   }), options);
   document.querySelectorAll('[data-back-menu]').forEach(button => button.addEventListener('click', () => leaveToMenu(), options));
-  $('#menu-return').addEventListener('click', () => leaveToMenu(), options);
+  $('#menu-return').addEventListener('click', () => {
+    const isRacing = game.state === 'racing' || game.state === 'countdown' || game.state === 'paused';
+    if (isRacing) {
+      const wasRacing = game.state === 'racing';
+      if (wasRacing) game.pause();
+      if (typeof window.confirm === 'function') {
+        const confirmed = window.confirm('Balapan sedang berlangsung! Jika keluar ke menu, balapan akan dihentikan.\n\nApakah Anda yakin ingin keluar?');
+        if (!confirmed) {
+          if (wasRacing) game.resume();
+          return;
+        }
+      }
+    }
+    leaveToMenu();
+  }, options);
   $('#leave-room').addEventListener('click', () => leaveToMenu(), options);
   $('#create-room').addEventListener('click', () => act($('#create-room'), '#room-browser-error', async () => {
     const profile = saveIdentity($('#room-driver-name').value); onlineProfileId = profile.id;

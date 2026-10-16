@@ -19,6 +19,7 @@ body:not([data-app-screen='race']) .hud-brand, body:not([data-app-screen='race']
 .menu-actions #menu-solo { background: var(--ink); color: #fffef8; }
 .menu-actions #menu-solo small { color: #d2dfc7; }
 .menu-message { font-size: 11px; line-height: 1.6; color: #60705f; margin: 16px 0 0; overflow-wrap: anywhere; min-height: 18px; }
+#connection-status[data-offline='true'], #room-browser-error:not(:empty) { color: #b73225; background: #fae8e6; border: 1px solid #f2bcba; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
 .menu-card { padding: 26px; background: #fffef6f2; border: 1px solid #d7dfce; border-radius: 16px; box-shadow: 0 18px 80px #263d321a; }
 .menu-card h1 { font-size: clamp(32px,6vw,47px); margin: 13px 0 20px; }
 .menu-card h2 { font: 700 24px/1 var(--display); margin: 0 0 14px; }

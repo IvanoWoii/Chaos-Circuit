@@ -37,7 +37,7 @@ export function createSimulation(parent, physics, { hazards = true, layout = def
     if (elapsed - (collisionTimes.get(key) ?? -Infinity) < 0.5) return;
     collisionTimes.set(key, elapsed);
     bumps++;
-    if (other.gameKind === 'obstacle') latestEvent = `${car.entry.name} just met a very unfriendly obstacle.`;
+    if (other.gameKind === 'obstacle') latestEvent = other.obstacleKind === 'ramp' ? `${car.entry.name} hit the ramp and launched into the air!` : `${car.entry.name} just met a very unfriendly obstacle.`;
     else if (other.gameKind === 'car') latestEvent = `${car.entry.name} and ${byBody.get(other.id)?.entry.name || 'another driver'} exchanged paint.`;
     else latestEvent = `${car.entry.name} is getting acquainted with the barriers.`;
   }

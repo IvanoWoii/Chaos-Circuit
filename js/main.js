@@ -69,7 +69,8 @@ export function startGame() {
     app.rig.controls.update(delta);
     app.renderer.render(app.scene, app.rig.camera);
     labels.update(game.state === 'lobby' ? game.world.grid.getLabelTargets() : game.world.simulation.cars,
-      game.getSnapshot().standings, app.rig.camera, worldMode === 'track' && document.body.dataset.appScreen === 'race');
+      game.getSnapshot().standings, app.rig.camera, worldMode === 'track' && document.body.dataset.appScreen === 'race',
+      game.localPlayerId);
     frames++;
     if (time - sampleStart >= 1000) { fpsCounter.textContent = `${Math.round(frames * 1000 / (time - sampleStart))} FPS`; sampleStart = time; frames = 0; }
   }

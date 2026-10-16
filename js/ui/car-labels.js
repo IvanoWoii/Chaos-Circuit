@@ -51,14 +51,15 @@ export function createCarLabels(viewport) {
     const arrow = document.createElement('span'); arrow.className = 'car-label-arrow';
     arrow.textContent = '▼'; arrow.dataset.racerId = entry.id;
     const line = document.createElementNS(SVG, 'line');
-    node.append(rank, name); layer.append(node, arrow); connectors.append(line);
-    const label = { node, rank, name, line, arrow };
+    const you = document.createElement('span'); you.className = 'car-label-you'; you.textContent = 'YOU'; you.hidden = true;
+    node.append(rank, name, you); layer.append(node, arrow); connectors.append(line);
+    const label = { node, rank, name, you, line, arrow };
     labels.set(entry.id, label);
     return label;
   }
 
   return {
-    update(targets, standings, camera, visible = true) {
+    update(targets, standings, camera, visible = true, localPlayerId = null) {
       layer.hidden = !visible;
       if (!visible) return;
       const { width, height } = viewport.getBoundingClientRect();
@@ -78,7 +79,11 @@ export function createCarLabels(viewport) {
         label.node.style.setProperty('--car-paint', entry.color);
         label.arrow.style.setProperty('--car-paint', entry.color);
         label.node.dataset.status = standing?.status || 'grid';
-        label.node.dataset.local = String(!entry.isBot);
+        const isSelf = localPlayerId ? (entry.id === localPlayerId) : !entry.isBot;
+        label.node.dataset.local = String(isSelf);
+        label.node.dataset.self = String(isSelf);
+        label.arrow.dataset.self = String(isSelf);
+        if (label.you) label.you.hidden = !isSelf;
         label.line.setAttribute('stroke', entry.color);
         root.getWorldPosition(projected);
         projected.y += 2.1;

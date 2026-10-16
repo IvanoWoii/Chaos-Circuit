@@ -108,8 +108,8 @@ export function createDriverAI(car, gridIndex, random, layout = defaultLayout) {
       const sensed = perception?.traffic || fleet.map(senseCar);
       const own = sensed.find((other) => other.id === car.entry.id) || senseCar(car);
       const curve = Math.abs(wrapAngle(getTrackPoint(own.distance + 9).heading - getTrackPoint(own.distance + 1).heading));
-      const cornerSpeed = stats.maxSpeed > 20 ? 12.6 : stats.maxSpeed < 16 ? 10.5 : 11.7;
-      const desiredSpeed = (curve > 0.22 ? cornerSpeed : stats.maxSpeed) * ai.speedBias * ai.throttleNoise;
+      const cornerSpeed = stats.maxSpeed * (curve > 0.4 ? 0.88 : 0.94);
+      const desiredSpeed = (curve > 0.18 ? cornerSpeed : stats.maxSpeed) * ai.speedBias * ai.throttleNoise;
       ai.planTimer -= dt;
       if (ai.planTimer <= 0) {
         ai.planTimer = 0.22 + personality.patience * 0.1;
@@ -120,7 +120,7 @@ export function createDriverAI(car, gridIndex, random, layout = defaultLayout) {
       // fresh random targets back toward the middle of the road every few seconds.
       ai.lane += clamp(ai.laneTarget - ai.lane, -dt * 2, dt * 2);
       const lane = clamp(ai.lane + Math.sin(time * 1.7 + ai.phase) * 0.12, -MAX_LANE_OFFSET, MAX_LANE_OFFSET);
-      const target = getTrackPoint(own.distance + 3.5 + Math.min(speed * 0.22, 3.2), lane);
+      const target = getTrackPoint(own.distance + 3.5 + Math.min(speed * 0.24, 4.2), lane);
       const desiredHeading = Math.atan2(target.x - position.x, target.z - position.z) + ai.steeringNoise;
       const forwardLength = Math.hypot(forward.x, forward.z);
       if (!car.grounded || up.y < 0.35 || forwardLength < 0.1) return;
@@ -128,7 +128,7 @@ export function createDriverAI(car, gridIndex, random, layout = defaultLayout) {
       forward.z /= forwardLength;
       const headingError = wrapAngle(desiredHeading - Math.atan2(forward.x, forward.z));
       let targetSpeed = Math.min(desiredSpeed, ai.plan.speedCap);
-      targetSpeed *= clamp(1 - Math.abs(headingError) * 0.36, 0.25, 1);
+      targetSpeed *= clamp(1 - Math.abs(headingError) * 0.08, 0.82, 1);
       if ((ai.stuckTime > 2.2 || ai.noProgressTime > 3.2) && !ai.hasReversed) {
         ai.reverseTime = 0.9;
         ai.hasReversed = true;
@@ -139,14 +139,15 @@ export function createDriverAI(car, gridIndex, random, layout = defaultLayout) {
       if (reversing) targetSpeed = -4;
 
       const forwardSpeed = velocity.x * forward.x + velocity.z * forward.z;
-      const acceleration = clamp((targetSpeed - forwardSpeed) * 2.3, -11, 10);
+      const minDecel = reversing ? -11 : (Math.abs(headingError) > 0.15 ? -2 : -4.5);
+      const acceleration = clamp((targetSpeed - forwardSpeed) * 2.5, minDecel, 11);
       const lateralSpeed = velocity.x * forward.z - velocity.z * forward.x;
-      const grip = clamp(-lateralSpeed * 5, -22, 22);
+      const grip = clamp(-lateralSpeed * 5.5, -24, 24);
       force.set((forward.x * acceleration + forward.z * grip) * stats.mass, 0,
         (forward.z * acceleration - forward.x * grip) * stats.mass);
       body.applyForce(force);
-      const yawRate = clamp(headingError * (reversing ? -1.4 : 3.1), -2.8, 2.8);
-      body.torque.y += body.inertia.y * clamp((yawRate - angularVelocity.y) * 7, -18, 18);
+      const yawRate = clamp(headingError * (reversing ? -1.4 : 3.4), -3.2, 3.2);
+      body.torque.y += body.inertia.y * clamp((yawRate - angularVelocity.y) * 8, -20, 20);
       // Mild upright damping keeps regular cornering stable without locking rotation.
       body.torque.x += body.inertia.x * (-up.z * 3 - angularVelocity.x * 1.5);
       body.torque.z += body.inertia.z * (up.x * 3 - angularVelocity.z * 1.5);

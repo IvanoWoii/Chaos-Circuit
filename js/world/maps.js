@@ -21,7 +21,7 @@ export function describeMap(id, seed) {
   const random = createRandom(seed ^ 0x741ba);
   const layout = createTrackLayout(map);
   const obstacles = [0.27, 0.52, 0.76].map((fraction, index) => ({
-    kind: index === 0 ? 'spinner' : index === 1 ? 'ball' : random() < 0.5 ? 'spinner' : 'ball',
+    kind: index === 0 ? 'ramp' : index === 1 ? 'ball' : random() < 0.5 ? 'ramp' : 'ball',
     distance: (fraction + (random() - 0.5) * 0.07) * layout.TRACK_LENGTH,
     speed: (0.9 + random() * 0.8) * (random() < 0.5 ? -1 : 1),
     phase: random() * Math.PI * 2,

@@ -111,7 +111,7 @@ function chooseDrivingPlan(own, traffic, hazards, personality, previous, desired
   for (const other of nearby) {
     const gap = trackGap(other.distance, own.distance);
     if (gap > 0 && gap < 5 && Math.abs(own.lane - other.lane) < 2.1) {
-      best.speedCap = Math.min(best.speedCap, Math.max(2.5, other.speed + Math.max(0, gap - 3) * 1.5));
+      best.speedCap = Math.min(best.speedCap, Math.max(8.5, other.speed + Math.max(0, gap - 3) * 1.5));
     }
   }
   return { lane: best.lane, speedCap: best.speedCap, intent,
